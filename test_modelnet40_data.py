@@ -55,6 +55,25 @@ def test_modelnet_getitem_and_collate():
     assert batch["labels"].dtype == torch.long
 
 
+def test_modelnet_test_sample_is_sampled_and_normalized():
+    dataset = ModelNetDataset(
+        data_dir=get_modelnet_root(),
+        split="test",
+        num_points=128,
+        data_augmentation=False,
+    )
+
+    sample_a = dataset[0]
+    sample_b = dataset[0]
+
+    assert sample_a["point_coords"].shape == (128, 3)
+    assert sample_a["point_coords"].dtype == torch.float32
+    assert sample_a["labels"].dtype == torch.long
+    assert torch.allclose(sample_a["point_coords"], sample_b["point_coords"])
+    assert sample_a["point_coords"].mean(dim=0).abs().max().item() < 1e-3
+    assert torch.linalg.norm(sample_a["point_coords"], dim=1).max().item() <= 1.0001
+
+
 def test_modelnet_validation_errors():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
@@ -96,5 +115,6 @@ def test_modelnet_validation_errors():
 if __name__ == "__main__":
     test_modelnet_indexing()
     test_modelnet_getitem_and_collate()
+    test_modelnet_test_sample_is_sampled_and_normalized()
     test_modelnet_validation_errors()
     print("test_modelnet40_data.py: PASS")

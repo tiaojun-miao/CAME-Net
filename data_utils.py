@@ -178,32 +178,55 @@ class ModelNetDataset(Dataset):
                 samples.append((str(off_path), self.class_to_idx[class_name]))
         return samples
 
+    def _augment(self, points: np.ndarray) -> np.ndarray:
+        if np.random.rand() < 0.5:
+            points = PointCloudProcessor.random_rotation(points, self.rotation_range)
+        if np.random.rand() < 0.5:
+            points = PointCloudProcessor.random_translation(points, self.translation_range)
+        return points
+
     @staticmethod
-    def _load_off_vertices(off_path: str) -> np.ndarray:
+    def _load_off_mesh(off_path: str) -> Tuple[np.ndarray, np.ndarray]:
         with open(off_path, 'r', encoding='utf-8') as handle:
             lines = [line.strip() for line in handle if line.strip()]
 
         if not lines or lines[0] != 'OFF':
             raise ValueError(f"Invalid OFF header in {off_path}")
-        if len(lines) < 2:
-            raise ValueError(f"Invalid OFF counts line in {off_path}")
 
         try:
-            num_vertices = int(lines[1].split()[0])
-        except (IndexError, ValueError) as exc:
+            num_vertices, num_faces, _ = map(int, lines[1].split())
+        except ValueError as exc:
             raise ValueError(f"Invalid OFF counts line in {off_path}") from exc
 
-        vertex_lines = lines[2:2 + num_vertices]
-        if len(vertex_lines) != num_vertices:
-            raise ValueError(f"OFF file is missing vertex data: {off_path}")
+        vertex_start = 2
+        vertex_end = vertex_start + num_vertices
+        face_end = vertex_end + num_faces
+
+        if len(lines) < face_end:
+            raise ValueError(f"OFF file is missing mesh data: {off_path}")
 
         vertices = np.asarray(
-            [[float(value) for value in line.split()[:3]] for line in vertex_lines],
+            [list(map(float, line.split())) for line in lines[vertex_start:vertex_end]],
             dtype=np.float32,
         )
         if vertices.shape != (num_vertices, 3):
             raise ValueError(f"OFF vertices must have shape (N, 3): {off_path}")
-        return vertices
+
+        triangles: List[List[int]] = []
+        for line in lines[vertex_end:face_end]:
+            parts = list(map(int, line.split()))
+            if not parts:
+                continue
+            face_degree = parts[0]
+            face_indices = parts[1:1 + face_degree]
+            if face_degree < 3:
+                continue
+            for offset in range(1, face_degree - 1):
+                triangles.append(
+                    [face_indices[0], face_indices[offset], face_indices[offset + 1]]
+                )
+
+        return vertices, np.asarray(triangles, dtype=np.int64)
 
     @staticmethod
     def _sample_vertices(vertices: np.ndarray, num_points: int, rng: np.random.Generator) -> np.ndarray:
@@ -213,21 +236,64 @@ class ModelNetDataset(Dataset):
         indices = rng.choice(len(vertices), size=num_points, replace=len(vertices) < num_points)
         return vertices[indices].astype(np.float32, copy=False)
 
+    @staticmethod
+    def _sample_surface_points(
+        vertices: np.ndarray,
+        triangles: np.ndarray,
+        num_points: int,
+        rng: np.random.Generator,
+    ) -> np.ndarray:
+        if len(triangles) == 0:
+            return ModelNetDataset._sample_vertices(vertices, num_points, rng)
+
+        tri_vertices = vertices[triangles]
+        edge_a = tri_vertices[:, 1] - tri_vertices[:, 0]
+        edge_b = tri_vertices[:, 2] - tri_vertices[:, 0]
+        areas = 0.5 * np.linalg.norm(np.cross(edge_a, edge_b), axis=1)
+        valid_mask = areas > 1e-12
+
+        if not np.any(valid_mask):
+            return ModelNetDataset._sample_vertices(vertices, num_points, rng)
+
+        tri_vertices = tri_vertices[valid_mask]
+        areas = areas[valid_mask]
+        triangle_indices = rng.choice(
+            len(tri_vertices),
+            size=num_points,
+            p=areas / areas.sum(),
+            replace=True,
+        )
+        chosen = tri_vertices[triangle_indices]
+
+        u = rng.random(num_points).astype(np.float32)
+        v = rng.random(num_points).astype(np.float32)
+        sqrt_u = np.sqrt(u)
+        bary_a = 1.0 - sqrt_u
+        bary_b = sqrt_u * (1.0 - v)
+        bary_c = sqrt_u * v
+
+        points = (
+            bary_a[:, None] * chosen[:, 0]
+            + bary_b[:, None] * chosen[:, 1]
+            + bary_c[:, None] * chosen[:, 2]
+        )
+        return points.astype(np.float32)
+
     def __len__(self) -> int:
         """Return the number of samples in the dataset."""
         return len(self.samples)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         off_path, label = self.samples[idx]
-        rng = np.random.default_rng(None if self.data_augmentation else idx)
+        rng_seed = idx if self.split == 'test' else None
+        rng = np.random.default_rng(rng_seed)
 
-        vertices = self._load_off_vertices(off_path)
-        points = self._sample_vertices(vertices, self.num_points, rng)
+        vertices, triangles = self._load_off_mesh(off_path)
+        points = self._sample_surface_points(vertices, triangles, self.num_points, rng)
         points = PointCloudProcessor.normalize(points)
 
-        if self.data_augmentation:
-            points = PointCloudProcessor.random_rotation(points, self.rotation_range)
-            points = PointCloudProcessor.random_translation(points, self.translation_range)
+        if self.data_augmentation and self.split == 'train':
+            points = self._augment(points)
 
         return {
             'point_coords': torch.from_numpy(points.astype(np.float32)),
