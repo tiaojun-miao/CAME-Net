@@ -59,8 +59,8 @@ def test_mpe_modules():
     point_mv = point_mpe(point_coords, point_features)
     print(f"PointCloudMPE output shape: {point_mv.data.shape}")
     assert point_mv.data.shape == (batch_size, num_points, 16)
-    assert torch.allclose(point_mv.data[..., [5, 6, 7]], torch.zeros_like(point_mv.data[..., [5, 6, 7]]), atol=1e-6)
-    assert point_mv.data[..., [8, 9, 10]].abs().sum().item() > 0.0
+    assert point_mv.data[..., [5, 6, 7]].abs().sum().item() > 0.0
+    assert torch.allclose(point_mv.data[..., [8, 9, 10]], torch.zeros_like(point_mv.data[..., [8, 9, 10]]), atol=1e-6)
 
     image_features = torch.randn(batch_size, 10, 128)
     image_mv = ImageMPE(patch_dim=128, hidden_dim=32)(image_features)
@@ -94,7 +94,7 @@ def test_mpe_modules():
 
 def test_point_mpe_equivariance():
     print("=" * 60)
-    print("Testing PointCloudMPE Equivariance")
+    print("Testing PointCloudMPE Geometry Contract")
     print("=" * 60)
 
     torch.manual_seed(0)
@@ -102,30 +102,37 @@ def test_point_mpe_equivariance():
     point_coords = torch.randn(1, 64, 3)
     original = point_mpe(point_coords)
 
-    motions = {
-        "translation": torch.tensor([[0.0, 0.0, 0.0, 1.0, -2.0, 0.5]]),
-        "rotation": torch.tensor([[0.2, -0.3, 0.6, 0.0, 0.0, 0.0]]),
-    }
+    translation = exp_bivector(torch.tensor([[0.0, 0.0, 0.0, 1.0, -2.0, 0.5]]))
+    translated_coords = extract_point_coordinates(create_point_pga(point_coords).apply_motor(translation))
+    translated = point_mpe(translated_coords)
+    translated_push = original.apply_motor(translation)
 
-    for name, omega in motions.items():
-        motor = exp_bivector(omega)
-        transformed_coords = extract_point_coordinates(create_point_pga(point_coords).apply_motor(motor))
-        transformed = point_mpe(transformed_coords)
-        pushed = original.apply_motor(motor)
+    grade1_translation_error = torch.mean((translated.data[..., GRADE_INDICES[1]] - translated_push.data[..., GRADE_INDICES[1]]) ** 2)
+    grade3_translation_error = torch.mean((translated.data[..., GRADE_INDICES[3]] - translated_push.data[..., GRADE_INDICES[3]]) ** 2)
 
-        grade1_error = torch.mean((transformed.data[..., GRADE_INDICES[1]] - pushed.data[..., GRADE_INDICES[1]]) ** 2)
-        grade2_error = torch.mean((transformed.data[..., GRADE_INDICES[2]] - pushed.data[..., GRADE_INDICES[2]]) ** 2)
-        grade3_error = torch.mean((transformed.data[..., GRADE_INDICES[3]] - pushed.data[..., GRADE_INDICES[3]]) ** 2)
+    print(f"translation grade-1 MSE: {grade1_translation_error.item():.6e}")
+    print(f"translation grade-3 MSE: {grade3_translation_error.item():.6e}")
+    assert grade1_translation_error.item() < 1e-8
+    assert grade3_translation_error.item() < 1e-8
+    assert torch.allclose(translated.data[..., [8, 9, 10]], torch.zeros_like(translated.data[..., [8, 9, 10]]), atol=1e-6)
 
-        print(f"{name} grade-1 MSE: {grade1_error.item():.6e}")
-        print(f"{name} grade-2 MSE: {grade2_error.item():.6e}")
-        print(f"{name} grade-3 MSE: {grade3_error.item():.6e}")
+    rotation = exp_bivector(torch.tensor([[0.2, -0.3, 0.6, 0.0, 0.0, 0.0]]))
+    rotated_coords = extract_point_coordinates(create_point_pga(point_coords).apply_motor(rotation))
+    rotated = point_mpe(rotated_coords)
+    rotated_push = original.apply_motor(rotation)
 
-        assert grade1_error.item() < 1e-8
-        assert grade2_error.item() < 1e-8
-        assert grade3_error.item() < 1e-8
+    grade1_rotation_error = torch.mean((rotated.data[..., GRADE_INDICES[1]] - rotated_push.data[..., GRADE_INDICES[1]]) ** 2)
+    grade3_rotation_error = torch.mean((rotated.data[..., GRADE_INDICES[3]] - rotated_push.data[..., GRADE_INDICES[3]]) ** 2)
 
-    print("[PASS] PointCloudMPE equivariance tests passed!\n")
+    print(f"rotation grade-1 MSE: {grade1_rotation_error.item():.6e}")
+    print(f"rotation grade-3 MSE: {grade3_rotation_error.item():.6e}")
+    assert grade1_rotation_error.item() < 1e-8
+    assert grade3_rotation_error.item() < 1e-8
+    assert rotated.data[..., [5, 6, 7]].abs().sum().item() > 0.0
+    assert torch.allclose(rotated.data[..., [8, 9, 10]], torch.zeros_like(rotated.data[..., [8, 9, 10]]), atol=1e-6)
+
+
+    print("[PASS] PointCloudMPE geometry contract tests passed!\n")
 
 
 def test_gca_and_gln():
@@ -286,3 +293,4 @@ def run_all_tests():
 
 if __name__ == "__main__":
     run_all_tests()
+

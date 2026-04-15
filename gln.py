@@ -29,7 +29,7 @@ class GradewiseLayerNorm(nn.Module):
         self,
         eps: float = 1e-6,
         learnable_scale: bool = True,
-        learnable_bias: bool = False,
+        learnable_bias: bool = True,
     ):
         super().__init__()
         self.eps = eps
@@ -69,3 +69,4 @@ class GradewiseLayerNorm(nn.Module):
             result[..., indices] = normalized
 
         return Multivector(result)
+

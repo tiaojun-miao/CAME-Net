@@ -11,10 +11,30 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from pga_algebra import GRADE_INDICES, create_point_pga, extract_point_coordinates, random_motor, random_rotation, random_translation
+from pga_algebra import GRADE_INDICES, Multivector, create_point_pga, extract_point_coordinates, geometric_product, random_motor, random_rotation, random_translation
 
 DEFAULT_SIGMA_ROT = math.pi / 6
 DEFAULT_SIGMA_TRANS = 1.0
+
+def multivector_distance(
+    a: Multivector,
+    b: Multivector,
+    eta: Optional[Dict[int, float]] = None,
+) -> torch.Tensor:
+    if eta is None:
+        eta = {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0}
+
+    diff = a.data - b.data
+    total = diff.new_zeros(())
+
+    for grade, indices in GRADE_INDICES.items():
+        grade_diff = torch.zeros_like(diff)
+        grade_diff[..., indices] = diff[..., indices]
+        reversed_grade = Multivector(grade_diff).reverse().data
+        scalar_part = geometric_product(grade_diff, reversed_grade)[..., 0].abs().mean()
+        total = total + eta.get(grade, 0.0) * scalar_part
+
+    return total
 
 
 def compute_equivariance_error(
@@ -186,3 +206,4 @@ def translational_equivariance_loss(
         total_loss = total_loss + F.mse_loss(translated_latent.data, target_latent.data)
 
     return total_loss / max(1, num_samples)
+
