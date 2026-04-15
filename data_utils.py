@@ -142,7 +142,7 @@ class ModelNetDataset(Dataset):
         if split not in {'train', 'test'}:
             raise ValueError(f"Unsupported split: {split}")
 
-        self.data_dir = self._resolve_data_dir(Path(data_dir))
+        self.data_dir = Path(data_dir)
         self.split = split
         self.num_points = num_points
         self.data_augmentation = data_augmentation
@@ -166,16 +166,6 @@ class ModelNetDataset(Dataset):
                 f"No OFF files found for split '{self.split}' under {self.data_dir}"
             )
 
-    @staticmethod
-    def _resolve_data_dir(data_dir: Path) -> Path:
-        if data_dir.exists():
-            return data_dir
-
-        fallback = Path(__file__).resolve().parents[2] / 'ModelNet40' / 'ModelNet40'
-        if fallback.exists():
-            return fallback
-
-        return data_dir
 
     def _index_samples(self) -> List[Tuple[str, int]]:
         samples: List[Tuple[str, int]] = []
