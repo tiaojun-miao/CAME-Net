@@ -151,6 +151,8 @@ class ModelNetDataset(Dataset):
 
         if not self.data_dir.exists():
             raise FileNotFoundError(f"ModelNet root not found: {self.data_dir}")
+        if not self.data_dir.is_dir():
+            raise NotADirectoryError(f"ModelNet root is not a directory: {self.data_dir}")
 
         self.class_names = sorted(
             entry.name for entry in self.data_dir.iterdir() if entry.is_dir()
@@ -166,7 +168,6 @@ class ModelNetDataset(Dataset):
                 f"No OFF files found for split '{self.split}' under {self.data_dir}"
             )
 
-
     def _index_samples(self) -> List[Tuple[str, int]]:
         samples: List[Tuple[str, int]] = []
         for class_name in self.class_names:
@@ -177,9 +178,61 @@ class ModelNetDataset(Dataset):
                 samples.append((str(off_path), self.class_to_idx[class_name]))
         return samples
 
+    @staticmethod
+    def _load_off_vertices(off_path: str) -> np.ndarray:
+        with open(off_path, 'r', encoding='utf-8') as handle:
+            lines = [line.strip() for line in handle if line.strip()]
+
+        if not lines or lines[0] != 'OFF':
+            raise ValueError(f"Invalid OFF header in {off_path}")
+        if len(lines) < 2:
+            raise ValueError(f"Invalid OFF counts line in {off_path}")
+
+        try:
+            num_vertices = int(lines[1].split()[0])
+        except (IndexError, ValueError) as exc:
+            raise ValueError(f"Invalid OFF counts line in {off_path}") from exc
+
+        vertex_lines = lines[2:2 + num_vertices]
+        if len(vertex_lines) != num_vertices:
+            raise ValueError(f"OFF file is missing vertex data: {off_path}")
+
+        vertices = np.asarray(
+            [[float(value) for value in line.split()[:3]] for line in vertex_lines],
+            dtype=np.float32,
+        )
+        if vertices.shape != (num_vertices, 3):
+            raise ValueError(f"OFF vertices must have shape (N, 3): {off_path}")
+        return vertices
+
+    @staticmethod
+    def _sample_vertices(vertices: np.ndarray, num_points: int, rng: np.random.Generator) -> np.ndarray:
+        if len(vertices) == 0:
+            raise ValueError("Cannot sample from an empty vertex array")
+
+        indices = rng.choice(len(vertices), size=num_points, replace=len(vertices) < num_points)
+        return vertices[indices].astype(np.float32, copy=False)
+
     def __len__(self) -> int:
         """Return the number of samples in the dataset."""
         return len(self.samples)
+
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+        off_path, label = self.samples[idx]
+        rng = np.random.default_rng(None if self.data_augmentation else idx)
+
+        vertices = self._load_off_vertices(off_path)
+        points = self._sample_vertices(vertices, self.num_points, rng)
+        points = PointCloudProcessor.normalize(points)
+
+        if self.data_augmentation:
+            points = PointCloudProcessor.random_rotation(points, self.rotation_range)
+            points = PointCloudProcessor.random_translation(points, self.translation_range)
+
+        return {
+            'point_coords': torch.from_numpy(points.astype(np.float32)),
+            'labels': torch.tensor(label, dtype=torch.long)
+        }
 
 def collate_fn(batch):
     """
