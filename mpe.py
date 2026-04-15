@@ -33,7 +33,7 @@ class PointCloudMPE(nn.Module):
 
     The point-cloud branch uses closed-form geometric objects:
     - grade 1: local tangent plane through each point
-    - grade 2: local normal direction encoded as an ideal bivector
+    - grade 2: local normal direction encoded as a Euclidean bivector
     - grade 3: exact OPNS PGA point
 
     Only the scalar channel is learned from rigid-motion invariants and
@@ -135,11 +135,11 @@ class PointCloudMPE(nn.Module):
         return plane
 
     @staticmethod
-    def _ideal_bivector_from_direction(normals: torch.Tensor) -> torch.Tensor:
+    def _euclidean_bivector_from_direction(normals: torch.Tensor) -> torch.Tensor:
         bivector = torch.zeros(normals.shape[:-1] + (6,), device=normals.device, dtype=normals.dtype)
-        bivector[..., 3] = -normals[..., 0]
-        bivector[..., 4] = -normals[..., 1]
-        bivector[..., 5] = normals[..., 2]
+        bivector[..., 0] = normals[..., 0]
+        bivector[..., 1] = normals[..., 1]
+        bivector[..., 2] = normals[..., 2]
         return bivector
 
     def forward(
@@ -164,7 +164,7 @@ class PointCloudMPE(nn.Module):
         output = torch.zeros(batch_size, num_points, 16, device=coords.device, dtype=coords.dtype)
         output[..., GRADE_INDICES[0]] = self.grade0_proj(hidden)
         output[..., GRADE_INDICES[1]] = self._plane_from_point_normal(coords, normals)
-        output[..., GRADE_INDICES[2]] = self._ideal_bivector_from_direction(normals)
+        output[..., GRADE_INDICES[2]] = self._euclidean_bivector_from_direction(normals)
         output[..., GRADE_INDICES[3]] = create_point_pga(coords).data[..., GRADE_INDICES[3]]
         output[..., GRADE_INDICES[4]] = 0.0
 
@@ -304,3 +304,5 @@ class MultimodalMPE(nn.Module):
         if return_splits:
             return combined, splits
         return combined
+
+

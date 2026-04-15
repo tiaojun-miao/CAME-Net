@@ -38,14 +38,20 @@ def _equivariance_loss_from_batch(equiv_loss_fn, model: nn.Module, batch: Dict[s
     image_patches = batch.get('image_patches')
     text_tokens = batch.get('text_tokens')
 
-    return equiv_loss_fn(
-        model,
-        point_coords,
-        labels.to(device) if labels is not None else None,
-        point_features=point_features.to(device) if point_features is not None else None,
-        image_patches=image_patches.to(device) if image_patches is not None else None,
-        text_tokens=text_tokens.to(device) if text_tokens is not None else None,
-    )
+    was_training = model.training
+    model.eval()
+    try:
+        return equiv_loss_fn(
+            model,
+            point_coords,
+            labels.to(device) if labels is not None else None,
+            point_features=point_features.to(device) if point_features is not None else None,
+            image_patches=image_patches.to(device) if image_patches is not None else None,
+            text_tokens=text_tokens.to(device) if text_tokens is not None else None,
+        )
+    finally:
+        if was_training:
+            model.train()
 
 
 def train_epoch(
@@ -518,3 +524,4 @@ if __name__ == '__main__':
     print(f"Final train accuracy: {history['train_acc'][-1]:.2f}%")
     if len(history['val_acc']) > 0:
         print(f"Final validation accuracy: {history['val_acc'][-1]:.2f}%")
+

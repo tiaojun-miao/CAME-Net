@@ -15,6 +15,10 @@ from gln import GradewiseLayerNorm
 from pga_algebra import GRADE_INDICES, MULTIVECTOR_DIM, REVERSION_SIGNS, SCALAR_PART_TABLE, Multivector
 
 
+def _grade_linear(in_dim: int, out_dim: int, grade: int) -> nn.Linear:
+    return nn.Linear(in_dim, out_dim, bias=(grade in (0, 4)))
+
+
 class GradeWiseLinear(nn.Module):
     """Apply an independent linear map inside each PGA grade."""
 
@@ -50,10 +54,10 @@ class GradeWiseMLP(nn.Module):
             dim = len(indices)
             hidden_dim = max(dim * expansion, dim)
             self.blocks[str(grade)] = nn.Sequential(
-                nn.Linear(dim, hidden_dim),
+                _grade_linear(dim, hidden_dim, grade),
                 nn.GELU(),
                 nn.Dropout(dropout),
-                nn.Linear(hidden_dim, dim),
+                _grade_linear(hidden_dim, dim, grade),
             )
 
     def forward(self, x: Multivector) -> Multivector:
@@ -95,10 +99,10 @@ class GeometricCliffordAttention(nn.Module):
             if not indices:
                 continue
             dim = len(indices)
-            self.grade_query_projs[str(grade)] = nn.Linear(dim, dim * num_heads)
-            self.grade_key_projs[str(grade)] = nn.Linear(dim, dim * num_heads)
-            self.grade_value_projs[str(grade)] = nn.Linear(dim, dim * num_heads)
-            self.grade_out_projs[str(grade)] = nn.Linear(dim * num_heads, dim)
+            self.grade_query_projs[str(grade)] = _grade_linear(dim, dim * num_heads, grade)
+            self.grade_key_projs[str(grade)] = _grade_linear(dim, dim * num_heads, grade)
+            self.grade_value_projs[str(grade)] = _grade_linear(dim, dim * num_heads, grade)
+            self.grade_out_projs[str(grade)] = _grade_linear(dim * num_heads, dim, grade)
 
     def _project(self, x: Multivector, projections: nn.ModuleDict) -> torch.Tensor:
         batch_size, num_tokens, _ = x.data.shape
@@ -199,3 +203,4 @@ class MotorValuedAttention(nn.Module):
         weights = F.softmax(logits, dim=-1)
         output = torch.matmul(weights, v)
         return self.out_proj(Multivector(output))
+
