@@ -1,0 +1,11 @@
+.worktrees/
+worktrees/
+.idea/
+.claude/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+ModelNet40/
+ModelNet40.zip
+checkpoints/
