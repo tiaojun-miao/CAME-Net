@@ -9,7 +9,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
-from typing import Optional, Dict, Tuple
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 
 class RandomPointCloudDataset(Dataset):
@@ -118,8 +119,6 @@ class RandomPointCloudDataset(Dataset):
 class ModelNetDataset(Dataset):
     """
     ModelNet Dataset for point cloud classification.
-
-    This is a placeholder that would load actual ModelNet data in a real implementation.
     """
 
     def __init__(
@@ -127,7 +126,9 @@ class ModelNetDataset(Dataset):
         data_dir: str,
         split: str = 'train',
         num_points: int = 1024,
-        data_augmentation: bool = True
+        data_augmentation: bool = True,
+        rotation_range: float = 0.5,
+        translation_range: float = 0.3
     ):
         """
         Initialize ModelNetDataset.
@@ -138,36 +139,57 @@ class ModelNetDataset(Dataset):
             num_points: Number of points to sample per object
             data_augmentation: Whether to apply data augmentation
         """
-        self.data_dir = data_dir
+        if split not in {'train', 'test'}:
+            raise ValueError(f"Unsupported split: {split}")
+
+        self.data_dir = self._resolve_data_dir(Path(data_dir))
         self.split = split
         self.num_points = num_points
         self.data_augmentation = data_augmentation
+        self.rotation_range = rotation_range
+        self.translation_range = translation_range
 
-        self.point_clouds = []
-        self.labels = []
+        if not self.data_dir.exists():
+            raise FileNotFoundError(f"ModelNet root not found: {self.data_dir}")
+
+        self.class_names = sorted(
+            entry.name for entry in self.data_dir.iterdir() if entry.is_dir()
+        )
+        self.class_to_idx = {
+            class_name: class_idx for class_idx, class_name in enumerate(self.class_names)
+        }
+        self.num_classes = len(self.class_names)
+        self.samples: List[Tuple[str, int]] = self._index_samples()
+
+        if not self.samples:
+            raise ValueError(
+                f"No OFF files found for split '{self.split}' under {self.data_dir}"
+            )
+
+    @staticmethod
+    def _resolve_data_dir(data_dir: Path) -> Path:
+        if data_dir.exists():
+            return data_dir
+
+        fallback = Path(__file__).resolve().parents[2] / 'ModelNet40' / 'ModelNet40'
+        if fallback.exists():
+            return fallback
+
+        return data_dir
+
+    def _index_samples(self) -> List[Tuple[str, int]]:
+        samples: List[Tuple[str, int]] = []
+        for class_name in self.class_names:
+            split_dir = self.data_dir / class_name / self.split
+            if not split_dir.exists():
+                continue
+            for off_path in sorted(split_dir.glob('*.off')):
+                samples.append((str(off_path), self.class_to_idx[class_name]))
+        return samples
 
     def __len__(self) -> int:
         """Return the number of samples in the dataset."""
-        return len(self.point_clouds)
-
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        """
-        Get a single sample from the dataset.
-
-        Args:
-            idx: Index of the sample
-
-        Returns:
-            Dictionary containing 'point_coords' and 'labels'
-        """
-        points = self.point_clouds[idx]
-        label = self.labels[idx]
-
-        return {
-            'point_coords': torch.from_numpy(points),
-            'labels': torch.tensor(label, dtype=torch.long)
-        }
-
+        return len(self.samples)
 
 def collate_fn(batch):
     """
@@ -314,3 +336,4 @@ def create_dataloader(
         pin_memory=pin_memory,
         collate_fn=collate_fn
     )
+
