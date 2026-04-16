@@ -452,6 +452,12 @@ def build_small_experiment_datasets_and_loaders(
         num_points=config.num_points,
         data_augmentation=True,
     )
+    val_base_dataset = ModelNetDataset(
+        data_dir=str(root),
+        split="train",
+        num_points=config.num_points,
+        data_augmentation=False,
+    )
     test_base_dataset = ModelNetDataset(
         data_dir=str(root),
         split="test",
@@ -466,7 +472,7 @@ def build_small_experiment_datasets_and_loaders(
         max_samples_per_class=config.train_samples_per_class,
     )
     val_dataset = FilteredModelNetSubset(
-        base_dataset=train_base_dataset,
+        base_dataset=val_base_dataset,
         allowed_classes=config.class_names,
         max_samples_per_class=config.val_samples_per_class,
     )

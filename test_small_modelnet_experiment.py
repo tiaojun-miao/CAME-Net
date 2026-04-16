@@ -116,6 +116,63 @@ def test_filtered_subset_can_skip_initial_samples_per_class():
     assert [int(subset[i]["labels"].item()) for i in range(len(subset))] == [0, 0, 1, 1]
 
 
+def test_build_datasets_uses_stable_non_augmented_train_split_for_validation():
+    dataset_instances = []
+
+    def fake_modelnet_dataset(*, data_dir, split, num_points, data_augmentation):
+        dataset = DummyModelNetDataset(
+            samples=[
+                ("airplane_0.off", 0),
+                ("airplane_1.off", 0),
+                ("airplane_2.off", 0),
+                ("chair_0.off", 1),
+                ("chair_1.off", 1),
+                ("chair_2.off", 1),
+            ],
+            class_names=["airplane", "chair"],
+        )
+        dataset.data_dir = data_dir
+        dataset.split = split
+        dataset.num_points = num_points
+        dataset.data_augmentation = data_augmentation
+        dataset_instances.append(dataset)
+        return dataset
+
+    config = SmallExperimentConfig(
+        class_names=("airplane", "chair"),
+        train_samples_per_class=2,
+        val_samples_per_class=1,
+        test_samples_per_class=1,
+        num_points=32,
+        batch_size=2,
+    )
+    resolved_root = Path("F:/fake-modelnet-root")
+
+    with mock.patch.object(sme, "ModelNetDataset", side_effect=fake_modelnet_dataset):
+        train_dataset, val_dataset, test_dataset, _, _, _ = sme.build_small_experiment_datasets_and_loaders(
+            config,
+            resolved_data_root=resolved_root,
+        )
+
+    assert len(dataset_instances) == 3
+
+    train_base_dataset, val_base_dataset, test_base_dataset = dataset_instances
+    assert train_base_dataset.split == "train"
+    assert train_base_dataset.data_augmentation is True
+    assert val_base_dataset.split == "train"
+    assert val_base_dataset.data_augmentation is False
+    assert test_base_dataset.split == "test"
+    assert test_base_dataset.data_augmentation is False
+
+    assert train_dataset.base_dataset is train_base_dataset
+    assert val_dataset.base_dataset is val_base_dataset
+    assert test_dataset.base_dataset is test_base_dataset
+
+    assert train_dataset.indices == [1, 2, 4, 5]
+    assert val_dataset.indices == [0, 3]
+    assert set(train_dataset.indices).isdisjoint(val_dataset.indices)
+
+
 def test_filtered_subset_reports_missing_and_short_classes():
     base_dataset = DummyModelNetDataset(
         samples=[
