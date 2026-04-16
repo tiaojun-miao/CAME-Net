@@ -94,7 +94,51 @@ def test_filtered_subset_reports_missing_and_short_classes():
         raise AssertionError("Expected insufficient samples error")
 
 
+def test_filtered_subset_rejects_duplicate_allowed_classes():
+    base_dataset = DummyModelNetDataset(
+        samples=[
+            ("sample_0.off", 0),
+            ("sample_1.off", 1),
+        ],
+        class_names=["airplane", "chair"],
+    )
+
+    try:
+        FilteredModelNetSubset(
+            base_dataset=base_dataset,
+            allowed_classes=["airplane", "airplane"],
+            max_samples_per_class=1,
+        )
+    except ValueError as exc:
+        assert "duplicate" in str(exc).lower()
+    else:
+        raise AssertionError("Expected duplicate class error")
+
+
+def test_filtered_subset_rejects_empty_allowed_classes():
+    base_dataset = DummyModelNetDataset(
+        samples=[
+            ("sample_0.off", 0),
+            ("sample_1.off", 1),
+        ],
+        class_names=["airplane", "chair"],
+    )
+
+    try:
+        FilteredModelNetSubset(
+            base_dataset=base_dataset,
+            allowed_classes=[],
+            max_samples_per_class=1,
+        )
+    except ValueError as exc:
+        assert "empty" in str(exc).lower() or "at least one" in str(exc).lower()
+    else:
+        raise AssertionError("Expected empty class list error")
+
+
 if __name__ == "__main__":
     test_filtered_subset_remaps_labels_and_caps_per_class()
     test_filtered_subset_reports_missing_and_short_classes()
+    test_filtered_subset_rejects_duplicate_allowed_classes()
+    test_filtered_subset_rejects_empty_allowed_classes()
     print("test_small_modelnet_experiment.py: PASS")

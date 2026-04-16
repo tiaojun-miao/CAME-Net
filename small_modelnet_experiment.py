@@ -73,6 +73,10 @@ class FilteredModelNetSubset(Dataset):
 
         self.base_dataset = base_dataset
         self.class_names = list(allowed_classes)
+        if not self.class_names:
+            raise ValueError("allowed_classes must contain at least one class")
+        if len(set(self.class_names)) != len(self.class_names):
+            raise ValueError("allowed_classes must not contain duplicate class names")
         self.class_to_idx = {class_name: idx for idx, class_name in enumerate(self.class_names)}
         self.num_classes = len(self.class_names)
 
