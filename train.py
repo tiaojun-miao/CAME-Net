@@ -54,6 +54,41 @@ def _equivariance_loss_from_batch(equiv_loss_fn, model: nn.Module, batch: Dict[s
             model.train()
 
 
+def create_default_modelnet_dataloaders(
+    data_root: str = "ModelNet40/ModelNet40",
+    num_points: int = 1024,
+    batch_size: int = 8,
+):
+    from data_utils import ModelNetDataset, collate_fn
+
+    train_dataset = ModelNetDataset(
+        data_dir=data_root,
+        split="train",
+        num_points=num_points,
+        data_augmentation=True,
+    )
+    val_dataset = ModelNetDataset(
+        data_dir=data_root,
+        split="test",
+        num_points=num_points,
+        data_augmentation=False,
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=collate_fn,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=collate_fn,
+    )
+    return train_loader, val_loader
+
+
 def train_epoch(
     model: nn.Module,
     dataloader: DataLoader,
@@ -464,7 +499,6 @@ def evaluate_modelnet(
 
 if __name__ == '__main__':
     from came_net import CAMENet, count_parameters
-    from data_utils import RandomPointCloudDataset, collate_fn
     from equiv_loss import equivariance_loss_efficient
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -479,32 +513,10 @@ if __name__ == '__main__':
 
     print(f"Model parameters: {count_parameters(model):,}")
 
-    train_dataset = RandomPointCloudDataset(
-        num_samples=1000,
+    train_loader, val_loader = create_default_modelnet_dataloaders(
+        data_root="ModelNet40/ModelNet40",
         num_points=1024,
-        num_classes=40,
-        data_augmentation=True
-    )
-
-    val_dataset = RandomPointCloudDataset(
-        num_samples=200,
-        num_points=1024,
-        num_classes=40,
-        data_augmentation=False
-    )
-
-    train_loader = DataLoader(
-        train_dataset,
         batch_size=8,
-        shuffle=True,
-        collate_fn=collate_fn
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=8,
-        shuffle=False,
-        collate_fn=collate_fn
     )
 
     history = train_came_net(

@@ -13,7 +13,9 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
+from came_net import CAMENet
 from data_utils import ModelNetDataset, collate_fn
+from train import create_default_modelnet_dataloaders
 
 
 def get_modelnet_root() -> str:
@@ -167,6 +169,26 @@ def test_modelnet_validation_errors():
         raise AssertionError("Unsupported split should raise ValueError")
 
 
+def test_default_modelnet_loaders_and_forward_smoke():
+    train_loader, val_loader = create_default_modelnet_dataloaders(
+        data_root=get_modelnet_root(),
+        num_points=64,
+        batch_size=2,
+    )
+
+    train_batch = next(iter(train_loader))
+    val_batch = next(iter(val_loader))
+    model = CAMENet(num_classes=40, point_feature_dim=0, num_layers=2, num_heads=4)
+
+    train_logits = model(point_coords=train_batch["point_coords"])
+    val_logits = model(point_coords=val_batch["point_coords"])
+
+    assert train_batch["point_coords"].shape == (2, 64, 3)
+    assert val_batch["point_coords"].shape == (2, 64, 3)
+    assert train_logits.shape == (2, 40)
+    assert val_logits.shape == (2, 40)
+
+
 if __name__ == "__main__":
     test_modelnet_indexing()
     test_modelnet_getitem_and_collate()
@@ -175,4 +197,5 @@ if __name__ == "__main__":
     test_modelnet_loads_inline_header_off_mesh()
     test_modelnet_rejects_malformed_face_rows()
     test_modelnet_validation_errors()
+    test_default_modelnet_loaders_and_forward_smoke()
     print("test_modelnet40_data.py: PASS")
