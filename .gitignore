@@ -9,3 +9,4 @@ __pycache__/
 ModelNet40/
 ModelNet40.zip
 checkpoints/
+artifacts/

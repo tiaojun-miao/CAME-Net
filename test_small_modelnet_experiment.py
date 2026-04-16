@@ -24,6 +24,13 @@ from small_modelnet_experiment import (
 )
 
 
+def test_entrypoint_script_and_gitignore_are_present():
+    repo_root = Path(__file__).resolve().parent
+    assert (repo_root / "run_small_modelnet_experiment.py").exists()
+    gitignore_text = (repo_root / ".gitignore").read_text(encoding="utf-8")
+    assert "artifacts/" in gitignore_text
+
+
 class DummyModelNetDataset:
     def __init__(self, samples, class_names):
         self.samples = list(samples)
@@ -398,6 +405,7 @@ def test_small_experiment_smoke_run():
 
 
 if __name__ == "__main__":
+    test_entrypoint_script_and_gitignore_are_present()
     test_filtered_subset_remaps_labels_and_caps_per_class()
     test_filtered_subset_reports_missing_and_short_classes()
     test_filtered_subset_rejects_duplicate_allowed_classes()
