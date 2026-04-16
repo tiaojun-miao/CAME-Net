@@ -190,43 +190,70 @@ class ModelNetDataset(Dataset):
         with open(off_path, 'r', encoding='utf-8') as handle:
             lines = [line.strip() for line in handle if line.strip()]
 
-        if not lines or lines[0] != 'OFF':
+        if not lines or not lines[0].startswith('OFF'):
             raise ValueError(f"Invalid OFF header in {off_path}")
 
+        first_line = lines[0]
+        counts_text = first_line[3:].strip()
+        vertex_start = 1
+        if not counts_text:
+            if len(lines) < 2:
+                raise ValueError(f"Invalid OFF counts line in {off_path}")
+            counts_text = lines[1]
+            vertex_start = 2
+
         try:
-            num_vertices, num_faces, _ = map(int, lines[1].split())
+            num_vertices, num_faces, _ = map(int, counts_text.split()[:3])
         except ValueError as exc:
             raise ValueError(f"Invalid OFF counts line in {off_path}") from exc
 
-        vertex_start = 2
         vertex_end = vertex_start + num_vertices
         face_end = vertex_end + num_faces
 
         if len(lines) < face_end:
             raise ValueError(f"OFF file is missing mesh data: {off_path}")
 
-        vertices = np.asarray(
-            [list(map(float, line.split())) for line in lines[vertex_start:vertex_end]],
-            dtype=np.float32,
-        )
+        vertices: List[List[float]] = []
+        for vertex_line in lines[vertex_start:vertex_end]:
+            parts = vertex_line.split()
+            if len(parts) < 3:
+                raise ValueError(f"Malformed OFF vertex row in {off_path}: {vertex_line}")
+            try:
+                vertices.append([float(parts[0]), float(parts[1]), float(parts[2])])
+            except ValueError as exc:
+                raise ValueError(f"Malformed OFF vertex row in {off_path}: {vertex_line}") from exc
+
+        vertices = np.asarray(vertices, dtype=np.float32)
         if vertices.shape != (num_vertices, 3):
             raise ValueError(f"OFF vertices must have shape (N, 3): {off_path}")
 
         triangles: List[List[int]] = []
-        for line in lines[vertex_end:face_end]:
-            parts = list(map(int, line.split()))
+        for face_line in lines[vertex_end:face_end]:
+            parts = face_line.split()
             if not parts:
-                continue
-            face_degree = parts[0]
-            face_indices = parts[1:1 + face_degree]
+                raise ValueError(f"Malformed OFF face row in {off_path}: {face_line}")
+
+            try:
+                face_values = [int(value) for value in parts]
+            except ValueError as exc:
+                raise ValueError(f"Malformed OFF face row in {off_path}: {face_line}") from exc
+
+            face_degree = face_values[0]
             if face_degree < 3:
-                continue
+                raise ValueError(f"OFF face must have at least 3 vertices in {off_path}: {face_line}")
+            if len(face_values) < face_degree + 1:
+                raise ValueError(f"Malformed OFF face row in {off_path}: {face_line}")
+
+            face_indices = face_values[1:1 + face_degree]
+            if min(face_indices) < 0 or max(face_indices) >= num_vertices:
+                raise ValueError(f"OFF face index out of bounds in {off_path}: {face_line}")
+
             for offset in range(1, face_degree - 1):
                 triangles.append(
                     [face_indices[0], face_indices[offset], face_indices[offset + 1]]
                 )
 
-        return vertices, np.asarray(triangles, dtype=np.int64)
+        return vertices, np.asarray(triangles, dtype=np.int64).reshape(-1, 3)
 
     @staticmethod
     def _sample_vertices(vertices: np.ndarray, num_points: int, rng: np.random.Generator) -> np.ndarray:
@@ -299,6 +326,7 @@ class ModelNetDataset(Dataset):
             'point_coords': torch.from_numpy(points.astype(np.float32)),
             'labels': torch.tensor(label, dtype=torch.long)
         }
+
 
 def collate_fn(batch):
     """

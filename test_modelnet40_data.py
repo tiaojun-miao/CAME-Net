@@ -9,6 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
@@ -74,6 +75,19 @@ def test_modelnet_test_sample_is_sampled_and_normalized():
     assert torch.linalg.norm(sample_a["point_coords"], dim=1).max().item() <= 1.0001
 
 
+def test_modelnet_loads_inline_header_off_mesh():
+    off_path = Path(get_modelnet_root()) / "bathtub" / "test" / "bathtub_0107.off"
+
+    vertices, triangles = ModelNetDataset._load_off_mesh(str(off_path))
+
+    assert vertices.shape == (1568, 3)
+    assert triangles.shape == (1820, 3)
+    assert vertices.dtype == np.float32
+    assert triangles.dtype == np.int64
+    assert triangles.min().item() >= 0
+    assert triangles.max().item() < vertices.shape[0]
+
+
 def test_modelnet_validation_errors():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
@@ -116,5 +130,6 @@ if __name__ == "__main__":
     test_modelnet_indexing()
     test_modelnet_getitem_and_collate()
     test_modelnet_test_sample_is_sampled_and_normalized()
+    test_modelnet_loads_inline_header_off_mesh()
     test_modelnet_validation_errors()
     print("test_modelnet40_data.py: PASS")
