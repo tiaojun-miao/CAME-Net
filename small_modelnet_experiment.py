@@ -302,17 +302,68 @@ def create_experiment_artifacts(
     return artifact_dir
 
 
-def resolve_modelnet_root(data_root: Optional[str] = None) -> Path:
+def _is_usable_modelnet_root(root: Path) -> bool:
+    return root.exists() and root.is_dir() and any(path.is_dir() for path in root.iterdir())
+
+
+def _default_modelnet_root_candidates(start_path: Path) -> List[Path]:
+    resolved_start = start_path.resolve()
+    parents = list(resolved_start.parents)
+    module_dir = resolved_start.parent
+    worktree_root = parents[1] if len(parents) > 1 else module_dir
+    repo_root = parents[2] if len(parents) > 2 else worktree_root.parent
+
+    candidates = [
+        module_dir / "ModelNet40" / "ModelNet40",
+        module_dir / "ModelNet40",
+        worktree_root / "ModelNet40" / "ModelNet40",
+        worktree_root / "ModelNet40",
+        repo_root / "ModelNet40" / "ModelNet40",
+        repo_root / "ModelNet40",
+    ]
+
+    unique_candidates: List[Path] = []
+    seen = set()
+    for candidate in candidates:
+        candidate_key = str(candidate)
+        if candidate_key in seen:
+            continue
+        seen.add(candidate_key)
+        unique_candidates.append(candidate)
+    return unique_candidates
+
+
+def resolve_modelnet_root(data_root: Optional[str] = None, start_path: Optional[Path] = None) -> Path:
     if data_root is not None:
         root = Path(data_root)
-    else:
-        root = Path(__file__).resolve().parent / "ModelNet40" / "ModelNet40"
+        if not root.exists():
+            raise FileNotFoundError(f"ModelNet40 root not found: {root}")
+        if not root.is_dir():
+            raise NotADirectoryError(f"ModelNet40 root is not a directory: {root}")
+        if not _is_usable_modelnet_root(root):
+            raise ValueError(f"ModelNet40 root is empty or malformed: {root}")
+        return root
 
-    if not root.exists():
-        raise FileNotFoundError(f"ModelNet40 root not found: {root}")
-    if not root.is_dir():
+    search_start = start_path or Path(__file__).resolve()
+    candidates = _default_modelnet_root_candidates(search_start)
+    for candidate in candidates:
+        if _is_usable_modelnet_root(candidate):
+            return candidate
+
+    root = candidates[0]
+    if root.exists() and not root.is_dir():
         raise NotADirectoryError(f"ModelNet40 root is not a directory: {root}")
-    return root
+    if root.exists():
+        raise ValueError(f"ModelNet40 root is empty or malformed: {root}")
+    searched = ", ".join(str(candidate) for candidate in candidates)
+    raise FileNotFoundError(f"ModelNet40 root not found. Searched: {searched}")
+
+
+def _create_run_paths(artifact_root: str) -> tuple[Path, Path]:
+    run_root = Path(artifact_root) / "runs" / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    checkpoint_dir = run_root / "checkpoints"
+    checkpoint_dir.mkdir(parents=True, exist_ok=False)
+    return run_root, checkpoint_dir
 
 
 class FilteredModelNetSubset(Dataset):
@@ -375,8 +426,10 @@ class FilteredModelNetSubset(Dataset):
 
 def build_small_experiment_datasets_and_loaders(
     config: SmallExperimentConfig,
+    *,
+    resolved_data_root: Optional[Path] = None,
 ) -> tuple[FilteredModelNetSubset, FilteredModelNetSubset, DataLoader, DataLoader]:
-    root = resolve_modelnet_root(config.data_root)
+    root = resolved_data_root or resolve_modelnet_root(config.data_root)
 
     train_base_dataset = ModelNetDataset(
         data_dir=str(root),
@@ -495,12 +548,15 @@ def run_small_experiment(config: SmallExperimentConfig) -> Dict[str, object]:
     if device.type != "cuda":
         print("Warning: CUDA is unavailable; running on CPU may exceed the intended runtime budget.")
 
+    resolved_data_root = resolve_modelnet_root(config.data_root)
+    run_root, checkpoint_dir = _create_run_paths(config.artifact_root)
+
     (
         train_dataset,
         test_dataset,
         train_loader,
         test_loader,
-    ) = build_small_experiment_datasets_and_loaders(config)
+    ) = build_small_experiment_datasets_and_loaders(config, resolved_data_root=resolved_data_root)
 
     model = CAMENet(
         num_classes=len(config.class_names),
@@ -511,9 +567,6 @@ def run_small_experiment(config: SmallExperimentConfig) -> Dict[str, object]:
         dropout=config.dropout,
         multimodal=False,
     ).to(device)
-
-    experiment_root = Path(config.artifact_root)
-    checkpoint_dir = experiment_root / "checkpoints"
 
     start_time = time.time()
     history = train_came_net(
@@ -558,9 +611,9 @@ def run_small_experiment(config: SmallExperimentConfig) -> Dict[str, object]:
     )
 
     artifact_dir = create_experiment_artifacts(
-        artifact_root=str(experiment_root),
+        artifact_root=str(run_root),
         config={
-            "data_root": str(resolve_modelnet_root(config.data_root)),
+            "data_root": str(resolved_data_root),
             "class_names": list(config.class_names),
             "train_samples_per_class": config.train_samples_per_class,
             "test_samples_per_class": config.test_samples_per_class,

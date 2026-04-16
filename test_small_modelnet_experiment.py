@@ -7,16 +7,19 @@ from __future__ import annotations
 import tempfile
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import small_modelnet_experiment as sme
 from small_modelnet_experiment import (
     FilteredModelNetSubset,
     SmallExperimentConfig,
     create_experiment_artifacts,
+    resolve_modelnet_root,
     run_small_experiment,
 )
 
@@ -40,20 +43,10 @@ class DummyModelNetDataset:
 
 
 def require_modelnet_root(start_path: Path | None = None) -> Path:
-    base_path = start_path or Path(__file__).resolve()
-    parents = list(base_path.parents)
-    worktree_root = parents[1] if len(parents) > 1 else base_path.parent
-    repo_root = parents[2] if len(parents) > 2 else worktree_root.parent
-    candidates = [
-        worktree_root / "ModelNet40" / "ModelNet40",
-        worktree_root / "ModelNet40",
-        repo_root / "ModelNet40" / "ModelNet40",
-        repo_root / "ModelNet40",
-    ]
-    for candidate in candidates:
-        if candidate.exists() and any(path.is_dir() for path in candidate.iterdir()):
-            return candidate
-    raise unittest.SkipTest("Real ModelNet40 data not available; skipping smoke run.")
+    try:
+        return resolve_modelnet_root(start_path=start_path or Path(__file__).resolve())
+    except (FileNotFoundError, NotADirectoryError, ValueError) as exc:
+        raise unittest.SkipTest(f"Real ModelNet40 data not available; skipping smoke run. ({exc})") from exc
 
 
 def test_filtered_subset_remaps_labels_and_caps_per_class():
@@ -299,7 +292,7 @@ def test_create_experiment_artifacts_rejects_mismatched_confusion_matrix():
             raise AssertionError("Expected mismatched confusion matrix error")
 
 
-def test_require_modelnet_root_finds_outer_repo_dataset():
+def test_resolve_modelnet_root_finds_outer_repo_dataset_from_worktree():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_root = Path(tmpdir) / "repo"
         worktree_dir = repo_root / ".worktrees" / "small-modelnet-experiment"
@@ -310,9 +303,67 @@ def test_require_modelnet_root_finds_outer_repo_dataset():
         outer_modelnet_root = repo_root / "ModelNet40"
         (outer_modelnet_root / "airplane" / "train").mkdir(parents=True)
 
-        resolved_root = require_modelnet_root(fake_test_path)
+        resolved_root = resolve_modelnet_root(start_path=fake_test_path)
 
         assert resolved_root == outer_modelnet_root
+
+
+def test_resolve_modelnet_root_rejects_missing_dataset_with_clear_error():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir) / "repo"
+        worktree_dir = repo_root / ".worktrees" / "small-modelnet-experiment"
+        worktree_dir.mkdir(parents=True)
+        fake_test_path = worktree_dir / "test_small_modelnet_experiment.py"
+        fake_test_path.write_text("", encoding="utf-8")
+
+        try:
+            resolve_modelnet_root(start_path=fake_test_path)
+        except FileNotFoundError as exc:
+            assert "modelnet40 root not found" in str(exc).lower()
+        else:
+            raise AssertionError("Expected missing dataset root error")
+
+
+def test_run_small_experiment_ignores_stale_shared_checkpoint():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        artifact_root = Path(tmpdir)
+        dataset_root = Path(tmpdir) / "ModelNet40"
+        (dataset_root / "airplane" / "train").mkdir(parents=True)
+        stale_checkpoint = artifact_root / "checkpoints" / "best_model.pth"
+        stale_checkpoint.parent.mkdir(parents=True)
+        stale_checkpoint.write_bytes(b"stale-checkpoint")
+
+        class DummyRunModel:
+            def to(self, device):
+                return self
+
+        train_dataset = type("TrainDataset", (), {"class_names": ["airplane", "chair"], "__len__": lambda self: 4})()
+        test_dataset = type("TestDataset", (), {"class_names": ["airplane", "chair"], "__len__": lambda self: 2})()
+
+        config = SmallExperimentConfig(
+            data_root=str(dataset_root),
+            class_names=("airplane", "chair"),
+            num_epochs=1,
+            artifact_root=str(artifact_root),
+            device="cpu",
+        )
+
+        with mock.patch.object(sme, "build_small_experiment_datasets_and_loaders", return_value=(train_dataset, test_dataset, object(), object())) as build_mock, \
+            mock.patch.object(sme, "CAMENet", return_value=DummyRunModel()), \
+            mock.patch.object(sme, "train_came_net", return_value={"train_loss": [1.0], "train_acc": [50.0], "val_loss": [], "val_acc": [], "lr": [0.001]}) as train_mock, \
+            mock.patch.object(sme, "load_checkpoint") as load_checkpoint_mock, \
+            mock.patch.object(sme, "evaluate_subset_model", return_value={"overall_accuracy": 50.0, "mean_class_accuracy": 50.0, "per_class_accuracy": {"airplane": 50.0, "chair": 50.0}, "confusion_matrix": [[1, 0], [0, 1]], "class_names": ["airplane", "chair"]}), \
+            mock.patch.object(sme, "collect_sample_predictions", return_value=[]), \
+            mock.patch.object(sme, "create_experiment_artifacts", return_value=artifact_root / "artifacts" / "run"), \
+            mock.patch.object(sme, "count_parameters", return_value=123):
+            run_small_experiment(config)
+
+        assert build_mock.call_args.kwargs["resolved_data_root"] == dataset_root
+        checkpoint_dir = Path(train_mock.call_args.kwargs["checkpoint_dir"])
+        assert checkpoint_dir.name == "checkpoints"
+        assert checkpoint_dir.parent.parent.name == "runs"
+        assert checkpoint_dir.parent.parent.parent == artifact_root
+        assert not load_checkpoint_mock.called
 
 
 def test_small_experiment_smoke_run():
@@ -354,7 +405,9 @@ if __name__ == "__main__":
     test_create_experiment_artifacts_writes_expected_files()
     test_create_experiment_artifacts_formats_dict_per_class_accuracy()
     test_create_experiment_artifacts_rejects_mismatched_confusion_matrix()
-    test_require_modelnet_root_finds_outer_repo_dataset()
+    test_resolve_modelnet_root_finds_outer_repo_dataset_from_worktree()
+    test_resolve_modelnet_root_rejects_missing_dataset_with_clear_error()
+    test_run_small_experiment_ignores_stale_shared_checkpoint()
     try:
         test_small_experiment_smoke_run()
     except unittest.SkipTest as exc:
