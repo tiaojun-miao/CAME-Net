@@ -35,6 +35,7 @@ def test_default_small_experiment_config_uses_compatible_test_subset_size():
     config = SmallExperimentConfig()
 
     assert config.class_names == ("airplane", "chair", "lamp", "sofa", "toilet")
+    assert config.val_samples_per_class == 10
     assert config.test_samples_per_class == 20
 
 
@@ -87,6 +88,31 @@ def test_filtered_subset_remaps_labels_and_caps_per_class():
     assert subset.num_classes == 2
     assert len(subset) == 4
     assert [int(subset[i]["point_coords"][0, 0].item()) for i in range(len(subset))] == [0, 2, 3, 4]
+    assert [int(subset[i]["labels"].item()) for i in range(len(subset))] == [0, 0, 1, 1]
+
+
+def test_filtered_subset_can_skip_initial_samples_per_class():
+    base_dataset = DummyModelNetDataset(
+        samples=[
+            ("sample_0.off", 0),
+            ("sample_1.off", 0),
+            ("sample_2.off", 0),
+            ("sample_3.off", 1),
+            ("sample_4.off", 1),
+            ("sample_5.off", 1),
+        ],
+        class_names=["airplane", "chair"],
+    )
+
+    subset = FilteredModelNetSubset(
+        base_dataset=base_dataset,
+        allowed_classes=["airplane", "chair"],
+        max_samples_per_class=2,
+        skip_samples_per_class=1,
+    )
+
+    assert len(subset) == 4
+    assert [int(subset[i]["point_coords"][0, 0].item()) for i in range(len(subset))] == [1, 2, 4, 5]
     assert [int(subset[i]["labels"].item()) for i in range(len(subset))] == [0, 0, 1, 1]
 
 
@@ -352,7 +378,11 @@ def test_run_small_experiment_ignores_stale_shared_checkpoint():
                 return self
 
         train_dataset = type("TrainDataset", (), {"class_names": ["airplane", "chair"], "__len__": lambda self: 4})()
+        val_dataset = type("ValDataset", (), {"class_names": ["airplane", "chair"], "__len__": lambda self: 2})()
         test_dataset = type("TestDataset", (), {"class_names": ["airplane", "chair"], "__len__": lambda self: 2})()
+        train_loader = object()
+        val_loader = object()
+        test_loader = object()
 
         config = SmallExperimentConfig(
             data_root=str(dataset_root),
@@ -362,7 +392,7 @@ def test_run_small_experiment_ignores_stale_shared_checkpoint():
             device="cpu",
         )
 
-        with mock.patch.object(sme, "build_small_experiment_datasets_and_loaders", return_value=(train_dataset, test_dataset, object(), object())) as build_mock, \
+        with mock.patch.object(sme, "build_small_experiment_datasets_and_loaders", return_value=(train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader)) as build_mock, \
             mock.patch.object(sme, "CAMENet", return_value=DummyRunModel()), \
             mock.patch.object(sme, "train_came_net", return_value={"train_loss": [1.0], "train_acc": [50.0], "val_loss": [], "val_acc": [], "lr": [0.001]}) as train_mock, \
             mock.patch.object(sme, "load_checkpoint") as load_checkpoint_mock, \
@@ -373,10 +403,13 @@ def test_run_small_experiment_ignores_stale_shared_checkpoint():
             run_small_experiment(config)
 
         assert build_mock.call_args.kwargs["resolved_data_root"] == dataset_root
+        assert train_mock.call_args.kwargs["train_dataloader"] is train_loader
+        assert train_mock.call_args.kwargs["val_dataloader"] is val_loader
         checkpoint_dir = Path(train_mock.call_args.kwargs["checkpoint_dir"])
         assert checkpoint_dir.name == "checkpoints"
         assert checkpoint_dir.parent.parent.name == "runs"
         assert checkpoint_dir.parent.parent.parent == artifact_root
+        assert train_mock.call_args.kwargs["val_dataloader"] is not test_loader
         assert not load_checkpoint_mock.called
 
 
@@ -415,6 +448,7 @@ if __name__ == "__main__":
     test_entrypoint_script_and_gitignore_are_present()
     test_default_small_experiment_config_uses_compatible_test_subset_size()
     test_filtered_subset_remaps_labels_and_caps_per_class()
+    test_filtered_subset_can_skip_initial_samples_per_class()
     test_filtered_subset_reports_missing_and_short_classes()
     test_filtered_subset_rejects_duplicate_allowed_classes()
     test_filtered_subset_rejects_empty_allowed_classes()

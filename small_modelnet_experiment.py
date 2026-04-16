@@ -42,6 +42,7 @@ class SmallExperimentConfig:
     data_root: Optional[str] = None
     class_names: Sequence[str] = tuple(DEFAULT_SMALL_EXPERIMENT_CLASSES)
     train_samples_per_class: int = 100
+    val_samples_per_class: int = 10
     test_samples_per_class: int = 20
     num_points: int = 256
     hidden_dim: int = 32
@@ -372,9 +373,12 @@ class FilteredModelNetSubset(Dataset):
         base_dataset: ModelNetDataset,
         allowed_classes: Sequence[str],
         max_samples_per_class: int,
+        skip_samples_per_class: int = 0,
     ) -> None:
         if max_samples_per_class <= 0:
             raise ValueError("max_samples_per_class must be positive")
+        if skip_samples_per_class < 0:
+            raise ValueError("skip_samples_per_class must be non-negative")
 
         self.base_dataset = base_dataset
         self.class_names = list(allowed_classes)
@@ -392,10 +396,14 @@ class FilteredModelNetSubset(Dataset):
 
         self.indices: List[int] = []
         selected_counts: Counter[str] = Counter()
+        skipped_counts: Counter[str] = Counter()
 
         for sample_idx, (_, original_label) in enumerate(base_dataset.samples):
             class_name = base_dataset.class_names[int(original_label)]
             if class_name not in self.class_to_idx:
+                continue
+            if skipped_counts[class_name] < skip_samples_per_class:
+                skipped_counts[class_name] += 1
                 continue
             if selected_counts[class_name] >= max_samples_per_class:
                 continue
@@ -428,7 +436,14 @@ def build_small_experiment_datasets_and_loaders(
     config: SmallExperimentConfig,
     *,
     resolved_data_root: Optional[Path] = None,
-) -> tuple[FilteredModelNetSubset, FilteredModelNetSubset, DataLoader, DataLoader]:
+) -> tuple[
+    FilteredModelNetSubset,
+    FilteredModelNetSubset,
+    FilteredModelNetSubset,
+    DataLoader,
+    DataLoader,
+    DataLoader,
+]:
     root = resolved_data_root or resolve_modelnet_root(config.data_root)
 
     train_base_dataset = ModelNetDataset(
@@ -447,7 +462,13 @@ def build_small_experiment_datasets_and_loaders(
     train_dataset = FilteredModelNetSubset(
         base_dataset=train_base_dataset,
         allowed_classes=config.class_names,
+        skip_samples_per_class=config.val_samples_per_class,
         max_samples_per_class=config.train_samples_per_class,
+    )
+    val_dataset = FilteredModelNetSubset(
+        base_dataset=train_base_dataset,
+        allowed_classes=config.class_names,
+        max_samples_per_class=config.val_samples_per_class,
     )
     test_dataset = FilteredModelNetSubset(
         base_dataset=test_base_dataset,
@@ -461,6 +482,12 @@ def build_small_experiment_datasets_and_loaders(
         shuffle=True,
         collate_fn=collate_fn,
     )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=config.batch_size,
+        shuffle=False,
+        collate_fn=collate_fn,
+    )
     test_loader = DataLoader(
         test_dataset,
         batch_size=config.batch_size,
@@ -468,7 +495,7 @@ def build_small_experiment_datasets_and_loaders(
         collate_fn=collate_fn,
     )
 
-    return train_dataset, test_dataset, train_loader, test_loader
+    return train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader
 
 
 def evaluate_subset_model(
@@ -553,8 +580,10 @@ def run_small_experiment(config: SmallExperimentConfig) -> Dict[str, object]:
 
     (
         train_dataset,
+        val_dataset,
         test_dataset,
         train_loader,
+        val_loader,
         test_loader,
     ) = build_small_experiment_datasets_and_loaders(config, resolved_data_root=resolved_data_root)
 
@@ -572,7 +601,7 @@ def run_small_experiment(config: SmallExperimentConfig) -> Dict[str, object]:
     history = train_came_net(
         model=model,
         train_dataloader=train_loader,
-        val_dataloader=test_loader,
+        val_dataloader=val_loader,
         num_epochs=config.num_epochs,
         learning_rate=config.learning_rate,
         weight_decay=config.weight_decay,
@@ -616,6 +645,7 @@ def run_small_experiment(config: SmallExperimentConfig) -> Dict[str, object]:
             "data_root": str(resolved_data_root),
             "class_names": list(config.class_names),
             "train_samples_per_class": config.train_samples_per_class,
+            "val_samples_per_class": config.val_samples_per_class,
             "test_samples_per_class": config.test_samples_per_class,
             "num_points": config.num_points,
             "hidden_dim": config.hidden_dim,
@@ -639,6 +669,7 @@ def run_small_experiment(config: SmallExperimentConfig) -> Dict[str, object]:
         selected_classes=train_dataset.class_names,
         dataset_sizes={
             "train": len(train_dataset),
+            "val": len(val_dataset),
             "test": len(test_dataset),
         },
         runtime_seconds=time.time() - start_time,
