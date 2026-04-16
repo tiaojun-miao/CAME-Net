@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import Sequence as SequenceABC
 from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
@@ -103,10 +104,23 @@ def _plot_training_curves(history: Dict[str, list], output_path: Path) -> None:
     plt.close(fig)
 
 
-def _plot_confusion_matrix(confusion_matrix, class_names: Sequence[str], output_path: Path) -> None:
+def _normalize_confusion_matrix(confusion_matrix, class_names: Sequence[str]) -> np.ndarray:
     matrix = np.asarray(confusion_matrix, dtype=float)
     if matrix.ndim != 2:
         raise ValueError("confusion_matrix must be a 2D array-like structure")
+    if matrix.shape[0] != matrix.shape[1]:
+        raise ValueError(f"confusion_matrix must be square, got shape {matrix.shape}")
+
+    expected_size = len(class_names)
+    if matrix.shape[0] != expected_size:
+        raise ValueError(
+            f"confusion_matrix shape {matrix.shape} does not match selected_classes length {expected_size}"
+        )
+    return matrix
+
+
+def _plot_confusion_matrix(confusion_matrix, class_names: Sequence[str], output_path: Path) -> None:
+    matrix = _normalize_confusion_matrix(confusion_matrix, class_names)
 
     fig, ax = plt.subplots(figsize=(max(5, 0.7 * matrix.shape[1]), max(4, 0.7 * matrix.shape[0])))
     image = ax.imshow(matrix, interpolation="nearest", cmap="Blues")
@@ -169,6 +183,27 @@ def _plot_sample_predictions(sample_predictions: Sequence[Dict], output_path: Pa
     plt.close(fig)
 
 
+def _format_per_class_accuracy_entries(per_class_accuracy, selected_classes: Sequence[str]) -> List[str]:
+    if per_class_accuracy is None:
+        return []
+
+    if isinstance(per_class_accuracy, dict):
+        return [f"- {class_name}: {accuracy}" for class_name, accuracy in per_class_accuracy.items()]
+
+    if isinstance(per_class_accuracy, np.ndarray):
+        per_class_accuracy = per_class_accuracy.tolist()
+
+    if isinstance(per_class_accuracy, SequenceABC) and not isinstance(per_class_accuracy, (str, bytes)):
+        class_labels = list(selected_classes) if len(selected_classes) == len(per_class_accuracy) else None
+        lines = []
+        for index, accuracy in enumerate(per_class_accuracy):
+            label = class_labels[index] if class_labels is not None else f"Class {index}"
+            lines.append(f"- {label}: {accuracy}")
+        return lines
+
+    return [f"- Per-class accuracy: {per_class_accuracy}"]
+
+
 def _format_summary(
     *,
     selected_classes: Sequence[str],
@@ -177,7 +212,10 @@ def _format_summary(
     metrics: Dict[str, object],
     artifact_files: Sequence[str],
 ) -> str:
-    per_class_accuracy = metrics.get("per_class_accuracy", [])
+    per_class_accuracy_lines = _format_per_class_accuracy_entries(
+        metrics.get("per_class_accuracy"),
+        selected_classes,
+    )
     lines = [
         "# Small ModelNet Experiment Summary",
         "",
@@ -203,7 +241,7 @@ def _format_summary(
             "- Per-class accuracy:",
         ]
     )
-    lines.extend(f"  - Class {index}: {value}" for index, value in enumerate(per_class_accuracy))
+    lines.extend(per_class_accuracy_lines or ["- n/a"])
     lines.extend(
         [
             "",

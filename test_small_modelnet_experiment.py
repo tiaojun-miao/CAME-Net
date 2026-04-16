@@ -193,10 +193,95 @@ def test_create_experiment_artifacts_writes_expected_files():
         assert "training_curves.png" in summary_text
 
 
+def test_create_experiment_artifacts_formats_dict_per_class_accuracy():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        artifact_dir = create_experiment_artifacts(
+            artifact_root=tmpdir,
+            config={
+                "class_names": ["airplane", "chair"],
+                "num_epochs": 2,
+            },
+            history={
+                "train_loss": [1.0, 0.5],
+                "train_acc": [25.0, 75.0],
+                "val_loss": [1.2, 0.7],
+                "val_acc": [20.0, 70.0],
+                "lr": [0.001, 0.0005],
+            },
+            metrics={
+                "overall_accuracy": 72.5,
+                "per_class_accuracy": {
+                    "airplane": 80.0,
+                    "chair": 65.0,
+                },
+            },
+            selected_classes=["airplane", "chair"],
+            dataset_sizes={"train": 4, "val": 2, "test": 2},
+            runtime_seconds=12.3,
+            sample_predictions=[
+                {
+                    "point_coords": torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32),
+                    "predicted_label": 0,
+                    "true_label": 1,
+                    "class_names": ["airplane", "chair"],
+                }
+            ],
+        )
+
+        summary_text = (Path(artifact_dir) / "summary.md").read_text(encoding="utf-8")
+        assert "- airplane: 80.0" in summary_text
+        assert "- chair: 65.0" in summary_text
+        assert "Class 0: airplane" not in summary_text
+        assert "Class 1: chair" not in summary_text
+
+
+def test_create_experiment_artifacts_rejects_mismatched_confusion_matrix():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
+            create_experiment_artifacts(
+                artifact_root=tmpdir,
+                config={
+                    "class_names": ["airplane", "chair", "lamp", "sofa", "toilet"],
+                    "num_epochs": 2,
+                },
+                history={
+                    "train_loss": [1.0, 0.5],
+                    "train_acc": [25.0, 75.0],
+                    "val_loss": [1.2, 0.7],
+                    "val_acc": [20.0, 70.0],
+                    "lr": [0.001, 0.0005],
+                },
+                metrics={
+                    "overall_accuracy": 72.5,
+                    "per_class_accuracy": [80.0, 65.0, 70.0, 75.0, 72.0],
+                },
+                selected_classes=["airplane", "chair", "lamp", "sofa", "toilet"],
+                dataset_sizes={"train": 10, "val": 5, "test": 5},
+                runtime_seconds=12.3,
+                sample_predictions=[
+                    {
+                        "point_coords": torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32),
+                        "predicted_label": 0,
+                        "true_label": 1,
+                        "class_names": ["airplane", "chair", "lamp", "sofa", "toilet"],
+                    }
+                ],
+                confusion_matrix=[[0 for _ in range(40)] for _ in range(40)],
+            )
+        except ValueError as exc:
+            error_text = str(exc).lower()
+            assert "confusion" in error_text
+            assert "selected_classes" in error_text or "selected classes" in error_text
+        else:
+            raise AssertionError("Expected mismatched confusion matrix error")
+
+
 if __name__ == "__main__":
     test_filtered_subset_remaps_labels_and_caps_per_class()
     test_filtered_subset_reports_missing_and_short_classes()
     test_filtered_subset_rejects_duplicate_allowed_classes()
     test_filtered_subset_rejects_empty_allowed_classes()
     test_create_experiment_artifacts_writes_expected_files()
+    test_create_experiment_artifacts_formats_dict_per_class_accuracy()
+    test_create_experiment_artifacts_rejects_mismatched_confusion_matrix()
     print("test_small_modelnet_experiment.py: PASS")
