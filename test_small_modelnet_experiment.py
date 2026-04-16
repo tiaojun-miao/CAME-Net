@@ -6,13 +6,19 @@ from __future__ import annotations
 
 import tempfile
 import sys
+import unittest
 from pathlib import Path
 
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from small_modelnet_experiment import FilteredModelNetSubset, create_experiment_artifacts
+from small_modelnet_experiment import (
+    FilteredModelNetSubset,
+    SmallExperimentConfig,
+    create_experiment_artifacts,
+    run_small_experiment,
+)
 
 
 class DummyModelNetDataset:
@@ -31,6 +37,17 @@ class DummyModelNetDataset:
             "point_coords": torch.tensor([[float(idx), 0.0, 0.0]], dtype=torch.float32),
             "labels": torch.tensor(label, dtype=torch.long),
         }
+
+
+def require_modelnet_root() -> Path:
+    candidates = [
+        Path(__file__).resolve().parent.parent / "ModelNet40" / "ModelNet40",
+        Path(__file__).resolve().parent.parent / "ModelNet40",
+    ]
+    for candidate in candidates:
+        if candidate.exists() and any(path.is_dir() for path in candidate.iterdir()):
+            return candidate
+    raise unittest.SkipTest("Real ModelNet40 data not available; skipping smoke run.")
 
 
 def test_filtered_subset_remaps_labels_and_caps_per_class():
@@ -276,6 +293,37 @@ def test_create_experiment_artifacts_rejects_mismatched_confusion_matrix():
             raise AssertionError("Expected mismatched confusion matrix error")
 
 
+def test_small_experiment_smoke_run():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config = SmallExperimentConfig(
+            data_root=str(require_modelnet_root()),
+            class_names=("airplane", "chair", "lamp", "sofa", "toilet"),
+            train_samples_per_class=2,
+            test_samples_per_class=1,
+            num_points=32,
+            hidden_dim=16,
+            num_layers=1,
+            num_heads=2,
+            batch_size=2,
+            num_epochs=1,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+            equiv_loss_weight=0.0,
+            device="cpu",
+            artifact_root=tmpdir,
+            sample_visualization_count=2,
+            checkpoint_interval=100,
+            print_interval=1,
+        )
+
+        result = run_small_experiment(config)
+
+        assert Path(result["artifact_dir"]).exists()
+        assert result["metrics"]["overall_accuracy"] >= 0.0
+        assert len(result["metrics"]["class_names"]) == 5
+        assert len(result["history"]["train_loss"]) == 1
+
+
 if __name__ == "__main__":
     test_filtered_subset_remaps_labels_and_caps_per_class()
     test_filtered_subset_reports_missing_and_short_classes()
@@ -284,4 +332,8 @@ if __name__ == "__main__":
     test_create_experiment_artifacts_writes_expected_files()
     test_create_experiment_artifacts_formats_dict_per_class_accuracy()
     test_create_experiment_artifacts_rejects_mismatched_confusion_matrix()
+    try:
+        test_small_experiment_smoke_run()
+    except unittest.SkipTest as exc:
+        print(f"test_small_experiment_smoke_run: SKIPPED ({exc})")
     print("test_small_modelnet_experiment.py: PASS")

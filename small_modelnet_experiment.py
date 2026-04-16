@@ -5,6 +5,7 @@ small_modelnet_experiment.py - Lightweight ModelNet40 experiment helpers.
 from __future__ import annotations
 
 import json
+import time
 from collections import Counter
 from collections.abc import Sequence as SequenceABC
 from datetime import datetime
@@ -18,9 +19,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 
+from came_net import CAMENet, count_parameters
 from data_utils import ModelNetDataset
+from data_utils import collate_fn
+from equiv_loss import equivariance_loss_efficient
+from train import load_checkpoint, train_came_net
 
 
 DEFAULT_SMALL_EXPERIMENT_CLASSES = [
@@ -366,3 +371,230 @@ class FilteredModelNetSubset(Dataset):
             "point_coords": sample["point_coords"],
             "labels": torch.tensor(remapped_label, dtype=torch.long),
         }
+
+
+def build_small_experiment_datasets_and_loaders(
+    config: SmallExperimentConfig,
+) -> tuple[FilteredModelNetSubset, FilteredModelNetSubset, DataLoader, DataLoader]:
+    root = resolve_modelnet_root(config.data_root)
+
+    train_base_dataset = ModelNetDataset(
+        data_dir=str(root),
+        split="train",
+        num_points=config.num_points,
+        data_augmentation=True,
+    )
+    test_base_dataset = ModelNetDataset(
+        data_dir=str(root),
+        split="test",
+        num_points=config.num_points,
+        data_augmentation=False,
+    )
+
+    train_dataset = FilteredModelNetSubset(
+        base_dataset=train_base_dataset,
+        allowed_classes=config.class_names,
+        max_samples_per_class=config.train_samples_per_class,
+    )
+    test_dataset = FilteredModelNetSubset(
+        base_dataset=test_base_dataset,
+        allowed_classes=config.class_names,
+        max_samples_per_class=config.test_samples_per_class,
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=config.batch_size,
+        shuffle=True,
+        collate_fn=collate_fn,
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=config.batch_size,
+        shuffle=False,
+        collate_fn=collate_fn,
+    )
+
+    return train_dataset, test_dataset, train_loader, test_loader
+
+
+def evaluate_subset_model(
+    model: CAMENet,
+    dataloader: DataLoader,
+    device: torch.device,
+    class_names: Sequence[str],
+) -> Dict[str, object]:
+    model.eval()
+    num_classes = len(class_names)
+    confusion_matrix = np.zeros((num_classes, num_classes), dtype=np.int64)
+
+    with torch.no_grad():
+        for batch in dataloader:
+            point_coords = batch["point_coords"].to(device)
+            labels = batch["labels"].to(device)
+            logits = model(point_coords=point_coords)
+            predictions = torch.argmax(logits, dim=1)
+
+            for true_label, predicted_label in zip(labels.tolist(), predictions.tolist()):
+                confusion_matrix[int(true_label), int(predicted_label)] += 1
+
+    total_samples = int(confusion_matrix.sum())
+    correct_samples = int(np.trace(confusion_matrix))
+    overall_accuracy = 100.0 * correct_samples / max(1, total_samples)
+
+    per_class_accuracy: Dict[str, float] = {}
+    per_class_values: List[float] = []
+    for class_index, class_name in enumerate(class_names):
+        class_total = int(confusion_matrix[class_index].sum())
+        class_accuracy = 100.0 * confusion_matrix[class_index, class_index] / max(1, class_total)
+        per_class_accuracy[class_name] = float(class_accuracy)
+        per_class_values.append(float(class_accuracy))
+
+    mean_class_accuracy = float(np.mean(per_class_values)) if per_class_values else 0.0
+
+    return {
+        "overall_accuracy": float(overall_accuracy),
+        "mean_class_accuracy": mean_class_accuracy,
+        "per_class_accuracy": per_class_accuracy,
+        "confusion_matrix": confusion_matrix.tolist(),
+        "class_names": list(class_names),
+    }
+
+
+def collect_sample_predictions(
+    model: CAMENet,
+    dataset: FilteredModelNetSubset,
+    device: torch.device,
+    sample_count: int,
+) -> List[Dict[str, object]]:
+    model.eval()
+    class_names = list(dataset.class_names)
+    collected_samples: List[Dict[str, object]] = []
+
+    with torch.no_grad():
+        for sample_index in range(min(sample_count, len(dataset))):
+            sample = dataset[sample_index]
+            point_coords = sample["point_coords"].unsqueeze(0).to(device)
+            logits = model(point_coords=point_coords)
+            predicted_label = int(torch.argmax(logits, dim=1).item())
+            true_label = int(sample["labels"].item())
+            collected_samples.append(
+                {
+                    "point_coords": sample["point_coords"].detach().cpu(),
+                    "predicted_label": predicted_label,
+                    "true_label": true_label,
+                    "class_names": class_names,
+                }
+            )
+
+    return collected_samples
+
+
+def run_small_experiment(config: SmallExperimentConfig) -> Dict[str, object]:
+    device = torch.device(config.device or ("cuda" if torch.cuda.is_available() else "cpu"))
+    if device.type != "cuda":
+        print("Warning: CUDA is unavailable; running on CPU may exceed the intended runtime budget.")
+
+    (
+        train_dataset,
+        test_dataset,
+        train_loader,
+        test_loader,
+    ) = build_small_experiment_datasets_and_loaders(config)
+
+    model = CAMENet(
+        num_classes=len(config.class_names),
+        point_feature_dim=0,
+        num_layers=config.num_layers,
+        num_heads=config.num_heads,
+        hidden_dim=config.hidden_dim,
+        dropout=config.dropout,
+        multimodal=False,
+    ).to(device)
+
+    experiment_root = Path(config.artifact_root)
+    checkpoint_dir = experiment_root / "checkpoints"
+
+    start_time = time.time()
+    history = train_came_net(
+        model=model,
+        train_dataloader=train_loader,
+        val_dataloader=test_loader,
+        num_epochs=config.num_epochs,
+        learning_rate=config.learning_rate,
+        weight_decay=config.weight_decay,
+        device=device,
+        equiv_loss_weight=config.equiv_loss_weight,
+        equiv_loss_fn=equivariance_loss_efficient,
+        equiv_warmup_steps=config.equiv_warmup_steps,
+        checkpoint_dir=str(checkpoint_dir),
+        checkpoint_interval=config.checkpoint_interval,
+        print_interval=config.print_interval,
+    )
+
+    best_checkpoint = checkpoint_dir / "best_model.pth"
+    if best_checkpoint.exists():
+        load_checkpoint(
+            model=model,
+            optimizer=None,
+            scheduler=None,
+            filepath=str(best_checkpoint),
+            device=device,
+        )
+
+    metrics = evaluate_subset_model(
+        model=model,
+        dataloader=test_loader,
+        device=device,
+        class_names=train_dataset.class_names,
+    )
+    metrics["parameter_count"] = count_parameters(model)
+
+    sample_predictions = collect_sample_predictions(
+        model=model,
+        dataset=test_dataset,
+        device=device,
+        sample_count=config.sample_visualization_count,
+    )
+
+    artifact_dir = create_experiment_artifacts(
+        artifact_root=str(experiment_root),
+        config={
+            "data_root": str(resolve_modelnet_root(config.data_root)),
+            "class_names": list(config.class_names),
+            "train_samples_per_class": config.train_samples_per_class,
+            "test_samples_per_class": config.test_samples_per_class,
+            "num_points": config.num_points,
+            "hidden_dim": config.hidden_dim,
+            "num_layers": config.num_layers,
+            "num_heads": config.num_heads,
+            "batch_size": config.batch_size,
+            "num_epochs": config.num_epochs,
+            "learning_rate": config.learning_rate,
+            "weight_decay": config.weight_decay,
+            "equiv_loss_weight": config.equiv_loss_weight,
+            "equiv_warmup_steps": config.equiv_warmup_steps,
+            "dropout": config.dropout,
+            "device": str(device),
+            "artifact_root": config.artifact_root,
+            "sample_visualization_count": config.sample_visualization_count,
+            "checkpoint_interval": config.checkpoint_interval,
+            "print_interval": config.print_interval,
+        },
+        history=history,
+        metrics=metrics,
+        selected_classes=train_dataset.class_names,
+        dataset_sizes={
+            "train": len(train_dataset),
+            "test": len(test_dataset),
+        },
+        runtime_seconds=time.time() - start_time,
+        sample_predictions=sample_predictions,
+        confusion_matrix=metrics["confusion_matrix"],
+    )
+
+    return {
+        "artifact_dir": str(artifact_dir),
+        "history": history,
+        "metrics": metrics,
+    }
