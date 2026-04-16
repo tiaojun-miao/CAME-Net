@@ -39,10 +39,16 @@ class DummyModelNetDataset:
         }
 
 
-def require_modelnet_root() -> Path:
+def require_modelnet_root(start_path: Path | None = None) -> Path:
+    base_path = start_path or Path(__file__).resolve()
+    parents = list(base_path.parents)
+    worktree_root = parents[1] if len(parents) > 1 else base_path.parent
+    repo_root = parents[2] if len(parents) > 2 else worktree_root.parent
     candidates = [
-        Path(__file__).resolve().parent.parent / "ModelNet40" / "ModelNet40",
-        Path(__file__).resolve().parent.parent / "ModelNet40",
+        worktree_root / "ModelNet40" / "ModelNet40",
+        worktree_root / "ModelNet40",
+        repo_root / "ModelNet40" / "ModelNet40",
+        repo_root / "ModelNet40",
     ]
     for candidate in candidates:
         if candidate.exists() and any(path.is_dir() for path in candidate.iterdir()):
@@ -293,6 +299,22 @@ def test_create_experiment_artifacts_rejects_mismatched_confusion_matrix():
             raise AssertionError("Expected mismatched confusion matrix error")
 
 
+def test_require_modelnet_root_finds_outer_repo_dataset():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir) / "repo"
+        worktree_dir = repo_root / ".worktrees" / "small-modelnet-experiment"
+        worktree_dir.mkdir(parents=True)
+        fake_test_path = worktree_dir / "test_small_modelnet_experiment.py"
+        fake_test_path.write_text("", encoding="utf-8")
+
+        outer_modelnet_root = repo_root / "ModelNet40"
+        (outer_modelnet_root / "airplane" / "train").mkdir(parents=True)
+
+        resolved_root = require_modelnet_root(fake_test_path)
+
+        assert resolved_root == outer_modelnet_root
+
+
 def test_small_experiment_smoke_run():
     with tempfile.TemporaryDirectory() as tmpdir:
         config = SmallExperimentConfig(
@@ -332,6 +354,7 @@ if __name__ == "__main__":
     test_create_experiment_artifacts_writes_expected_files()
     test_create_experiment_artifacts_formats_dict_per_class_accuracy()
     test_create_experiment_artifacts_rejects_mismatched_confusion_matrix()
+    test_require_modelnet_root_finds_outer_repo_dataset()
     try:
         test_small_experiment_smoke_run()
     except unittest.SkipTest as exc:
