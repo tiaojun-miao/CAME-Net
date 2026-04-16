@@ -27,8 +27,8 @@ from small_modelnet_experiment import (
 def test_entrypoint_script_and_gitignore_are_present():
     repo_root = Path(__file__).resolve().parent
     assert (repo_root / "run_small_modelnet_experiment.py").exists()
-    gitignore_text = (repo_root / ".gitignore").read_text(encoding="utf-8")
-    assert "artifacts/" in gitignore_text
+    gitignore_lines = [line.strip() for line in (repo_root / ".gitignore").read_text(encoding="utf-8").splitlines()]
+    assert "/artifacts/" in gitignore_lines
 
 
 class DummyModelNetDataset:
