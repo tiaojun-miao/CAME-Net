@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from pathlib import Path
 import time
 from typing import Optional, Dict, Tuple
 import os
@@ -55,11 +56,14 @@ def _equivariance_loss_from_batch(equiv_loss_fn, model: nn.Module, batch: Dict[s
 
 
 def create_default_modelnet_dataloaders(
-    data_root: str = "ModelNet40/ModelNet40",
+    data_root: Optional[str] = None,
     num_points: int = 1024,
     batch_size: int = 8,
 ):
     from data_utils import ModelNetDataset, collate_fn
+
+    if data_root is None:
+        data_root = Path(__file__).resolve().parent / "ModelNet40" / "ModelNet40"
 
     train_dataset = ModelNetDataset(
         data_dir=data_root,
@@ -514,7 +518,6 @@ if __name__ == '__main__':
     print(f"Model parameters: {count_parameters(model):,}")
 
     train_loader, val_loader = create_default_modelnet_dataloaders(
-        data_root="ModelNet40/ModelNet40",
         num_points=1024,
         batch_size=8,
     )

@@ -189,6 +189,24 @@ def test_default_modelnet_loaders_and_forward_smoke():
     assert val_logits.shape == (2, 40)
 
 
+def test_default_modelnet_loader_default_root_is_independent_of_cwd():
+    original_cwd = os.getcwd()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.chdir(tmpdir)
+        try:
+            train_loader, val_loader = create_default_modelnet_dataloaders(
+                num_points=64,
+                batch_size=2,
+            )
+            train_batch = next(iter(train_loader))
+            val_batch = next(iter(val_loader))
+        finally:
+            os.chdir(original_cwd)
+
+    assert train_batch["point_coords"].shape == (2, 64, 3)
+    assert val_batch["point_coords"].shape == (2, 64, 3)
+
+
 if __name__ == "__main__":
     test_modelnet_indexing()
     test_modelnet_getitem_and_collate()
@@ -198,4 +216,5 @@ if __name__ == "__main__":
     test_modelnet_rejects_malformed_face_rows()
     test_modelnet_validation_errors()
     test_default_modelnet_loaders_and_forward_smoke()
+    test_default_modelnet_loader_default_root_is_independent_of_cwd()
     print("test_modelnet40_data.py: PASS")
