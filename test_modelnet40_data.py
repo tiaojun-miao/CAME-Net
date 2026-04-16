@@ -5,6 +5,7 @@ test_modelnet40_data.py - Dataset and loader checks for local ModelNet40 OFF mes
 import os
 import sys
 import tempfile
+from unittest import SkipTest
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -19,12 +20,22 @@ from train import create_default_modelnet_dataloaders
 
 
 def get_modelnet_root() -> str:
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "ModelNet40", "ModelNet40")
+    return os.environ.get(
+        "MODELNET40_ROOT",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "ModelNet40", "ModelNet40"),
+    )
+
+
+def require_modelnet_root(root: str) -> str:
+    if not Path(root).exists():
+        raise SkipTest(f"ModelNet40 dataset not found at {root}")
+    return root
 
 
 def test_modelnet_indexing():
+    root = require_modelnet_root(get_modelnet_root())
     dataset = ModelNetDataset(
-        data_dir=get_modelnet_root(),
+        data_dir=root,
         split="train",
         num_points=32,
         data_augmentation=False,
@@ -37,8 +48,9 @@ def test_modelnet_indexing():
 
 
 def test_modelnet_getitem_and_collate():
+    root = require_modelnet_root(get_modelnet_root())
     dataset = ModelNetDataset(
-        data_dir=get_modelnet_root(),
+        data_dir=root,
         split="train",
         num_points=16,
         data_augmentation=False,
@@ -59,8 +71,9 @@ def test_modelnet_getitem_and_collate():
 
 
 def test_modelnet_train_sample_is_deterministic_without_augmentation():
+    root = require_modelnet_root(get_modelnet_root())
     dataset = ModelNetDataset(
-        data_dir=get_modelnet_root(),
+        data_dir=root,
         split="train",
         num_points=128,
         data_augmentation=False,
@@ -74,8 +87,9 @@ def test_modelnet_train_sample_is_deterministic_without_augmentation():
 
 
 def test_modelnet_test_sample_is_sampled_and_normalized():
+    root = require_modelnet_root(get_modelnet_root())
     dataset = ModelNetDataset(
-        data_dir=get_modelnet_root(),
+        data_dir=root,
         split="test",
         num_points=128,
         data_augmentation=False,
@@ -93,7 +107,8 @@ def test_modelnet_test_sample_is_sampled_and_normalized():
 
 
 def test_modelnet_loads_inline_header_off_mesh():
-    off_path = Path(get_modelnet_root()) / "bathtub" / "test" / "bathtub_0107.off"
+    root = Path(require_modelnet_root(get_modelnet_root()))
+    off_path = root / "bathtub" / "test" / "bathtub_0107.off"
 
     vertices, triangles = ModelNetDataset._load_off_mesh(str(off_path))
 
@@ -161,17 +176,18 @@ def test_modelnet_validation_errors():
         else:
             raise AssertionError("Empty split should raise ValueError")
 
-    try:
-        ModelNetDataset(data_dir=get_modelnet_root(), split="validation")
-    except ValueError as exc:
-        assert "Unsupported split" in str(exc)
-    else:
-        raise AssertionError("Unsupported split should raise ValueError")
+        try:
+            ModelNetDataset(data_dir=str(tmp_path), split="validation")
+        except ValueError as exc:
+            assert "Unsupported split" in str(exc)
+        else:
+            raise AssertionError("Unsupported split should raise ValueError")
 
 
 def test_default_modelnet_loaders_and_forward_smoke():
+    root = require_modelnet_root(get_modelnet_root())
     train_loader, val_loader = create_default_modelnet_dataloaders(
-        data_root=get_modelnet_root(),
+        data_root=root,
         num_points=64,
         batch_size=2,
     )
@@ -190,6 +206,7 @@ def test_default_modelnet_loaders_and_forward_smoke():
 
 
 def test_default_modelnet_loader_default_root_is_independent_of_cwd():
+    require_modelnet_root(os.path.join(os.path.dirname(os.path.abspath(__file__)), "ModelNet40", "ModelNet40"))
     original_cwd = os.getcwd()
     with tempfile.TemporaryDirectory() as tmpdir:
         os.chdir(tmpdir)
@@ -208,13 +225,29 @@ def test_default_modelnet_loader_default_root_is_independent_of_cwd():
 
 
 if __name__ == "__main__":
-    test_modelnet_indexing()
-    test_modelnet_getitem_and_collate()
-    test_modelnet_train_sample_is_deterministic_without_augmentation()
-    test_modelnet_test_sample_is_sampled_and_normalized()
-    test_modelnet_loads_inline_header_off_mesh()
-    test_modelnet_rejects_malformed_face_rows()
-    test_modelnet_validation_errors()
-    test_default_modelnet_loaders_and_forward_smoke()
-    test_default_modelnet_loader_default_root_is_independent_of_cwd()
-    print("test_modelnet40_data.py: PASS")
+    tests = [
+        test_modelnet_indexing,
+        test_modelnet_getitem_and_collate,
+        test_modelnet_train_sample_is_deterministic_without_augmentation,
+        test_modelnet_test_sample_is_sampled_and_normalized,
+        test_modelnet_loads_inline_header_off_mesh,
+        test_modelnet_rejects_malformed_face_rows,
+        test_modelnet_validation_errors,
+        test_default_modelnet_loaders_and_forward_smoke,
+        test_default_modelnet_loader_default_root_is_independent_of_cwd,
+    ]
+
+    skipped = 0
+    for test in tests:
+        try:
+            test()
+        except SkipTest as exc:
+            skipped += 1
+            print(f"{test.__name__}: SKIP ({exc})")
+        else:
+            print(f"{test.__name__}: PASS")
+
+    if skipped:
+        print(f"test_modelnet40_data.py: PASS ({skipped} skipped)")
+    else:
+        print("test_modelnet40_data.py: PASS")
