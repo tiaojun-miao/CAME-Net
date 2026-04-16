@@ -31,6 +31,13 @@ def test_entrypoint_script_and_gitignore_are_present():
     assert "/artifacts/" in gitignore_lines
 
 
+def test_default_small_experiment_config_uses_compatible_test_subset_size():
+    config = SmallExperimentConfig()
+
+    assert config.class_names == ("airplane", "chair", "lamp", "sofa", "toilet")
+    assert config.test_samples_per_class == 20
+
+
 class DummyModelNetDataset:
     def __init__(self, samples, class_names):
         self.samples = list(samples)
@@ -406,6 +413,7 @@ def test_small_experiment_smoke_run():
 
 if __name__ == "__main__":
     test_entrypoint_script_and_gitignore_are_present()
+    test_default_small_experiment_config_uses_compatible_test_subset_size()
     test_filtered_subset_remaps_labels_and_caps_per_class()
     test_filtered_subset_reports_missing_and_short_classes()
     test_filtered_subset_rejects_duplicate_allowed_classes()

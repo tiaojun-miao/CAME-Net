@@ -42,7 +42,7 @@ class SmallExperimentConfig:
     data_root: Optional[str] = None
     class_names: Sequence[str] = tuple(DEFAULT_SMALL_EXPERIMENT_CLASSES)
     train_samples_per_class: int = 100
-    test_samples_per_class: int = 30
+    test_samples_per_class: int = 20
     num_points: int = 256
     hidden_dim: int = 32
     num_layers: int = 2
