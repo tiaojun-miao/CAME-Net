@@ -56,6 +56,21 @@ def test_modelnet_getitem_and_collate():
     assert batch["labels"].dtype == torch.long
 
 
+def test_modelnet_train_sample_is_deterministic_without_augmentation():
+    dataset = ModelNetDataset(
+        data_dir=get_modelnet_root(),
+        split="train",
+        num_points=128,
+        data_augmentation=False,
+    )
+
+    sample_a = dataset[0]
+    sample_b = dataset[0]
+
+    assert torch.allclose(sample_a["point_coords"], sample_b["point_coords"])
+    assert sample_a["labels"].item() == sample_b["labels"].item()
+
+
 def test_modelnet_test_sample_is_sampled_and_normalized():
     dataset = ModelNetDataset(
         data_dir=get_modelnet_root(),
@@ -86,6 +101,32 @@ def test_modelnet_loads_inline_header_off_mesh():
     assert triangles.dtype == np.int64
     assert triangles.min().item() >= 0
     assert triangles.max().item() < vertices.shape[0]
+
+
+def test_modelnet_rejects_malformed_face_rows():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        off_path = Path(tmpdir) / "bad_face.off"
+        off_path.write_text(
+            "\n".join(
+                [
+                    "OFF",
+                    "4 1 0",
+                    "0 0 0",
+                    "1 0 0",
+                    "0 1 0",
+                    "0 0 1",
+                    "3 0 1",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        try:
+            ModelNetDataset._load_off_mesh(str(off_path))
+        except ValueError as exc:
+            assert "Malformed OFF face row" in str(exc)
+        else:
+            raise AssertionError("Malformed face row should raise ValueError")
 
 
 def test_modelnet_validation_errors():
@@ -129,7 +170,9 @@ def test_modelnet_validation_errors():
 if __name__ == "__main__":
     test_modelnet_indexing()
     test_modelnet_getitem_and_collate()
+    test_modelnet_train_sample_is_deterministic_without_augmentation()
     test_modelnet_test_sample_is_sampled_and_normalized()
     test_modelnet_loads_inline_header_off_mesh()
+    test_modelnet_rejects_malformed_face_rows()
     test_modelnet_validation_errors()
     print("test_modelnet40_data.py: PASS")

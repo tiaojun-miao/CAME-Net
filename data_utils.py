@@ -312,7 +312,7 @@ class ModelNetDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         off_path, label = self.samples[idx]
-        rng_seed = idx if self.split == 'test' else None
+        rng_seed = idx if (self.split == 'test' or not self.data_augmentation) else None
         rng = np.random.default_rng(rng_seed)
 
         vertices, triangles = self._load_off_mesh(off_path)
