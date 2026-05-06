@@ -340,9 +340,8 @@ Supported through:
 
 Supported through:
 
-- [`scripts/download-scannet.py`](scripts/download-scannet.py)
-- [`experiments/download_scannet_subset.py`](experiments/download_scannet_subset.py)
 - ScanNet experiment and visualization entrypoints under [`experiments/`](experiments/)
+- Public repository support is focused on training, robustness evaluation, and figure generation once the dataset is prepared locally.
 
 ## Project Positioning
 
