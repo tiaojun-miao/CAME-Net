@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "came-net"
+version = "0.1.0"
+description = "Research code for CAME-Net: a PGA-based multimodal approximate equivariant network."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "torch>=2.1",
+  "numpy>=1.24",
+  "matplotlib>=3.7",
+  "tqdm>=4.66",
+  "Pillow>=10.0",
+]
+
+[project.scripts]
+came-train = "training.train:main"
+came-small-modelnet = "experiments.run_small_modelnet_experiment:main"
+came-scannet-multimodal = "experiments.run_scannet_multimodal_experiment:main"
+came-scannet-rigid = "experiments.run_scannet_rigid_benchmark:main"
+came-scannet-qualitative = "experiments.run_scannet_qualitative_figure:main"
+came-scannet-robustness-figure = "experiments.run_scannet_spatial_robustness_figure:main"
+came-scannet-relevance-figure = "experiments.run_scannet_point_relevance_figure:main"
+
+[tool.setuptools]
+packages = ["method", "training", "experiments"]

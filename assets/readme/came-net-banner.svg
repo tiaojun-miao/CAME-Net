@@ -1,0 +1,51 @@
+<svg width="1600" height="420" viewBox="0 0 1600 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1220"/>
+      <stop offset="0.5" stop-color="#10203C"/>
+      <stop offset="1" stop-color="#123C4A"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="250" y1="100" x2="1350" y2="340" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8BD3FF" stop-opacity="0.28"/>
+      <stop offset="0.45" stop-color="#5EEAD4" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#F59E0B" stop-opacity="0.2"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="420" rx="24" fill="url(#bg)"/>
+  <rect x="40" y="40" width="1520" height="340" rx="20" fill="url(#accent)" stroke="rgba(255,255,255,0.18)"/>
+
+  <circle cx="1260" cy="126" r="78" fill="#1F6FEB" fill-opacity="0.16"/>
+  <circle cx="1375" cy="210" r="116" fill="#14B8A6" fill-opacity="0.12"/>
+  <circle cx="1215" cy="275" r="64" fill="#F59E0B" fill-opacity="0.14"/>
+
+  <text x="92" y="132" fill="white" font-family="Segoe UI, Arial, sans-serif" font-size="52" font-weight="700">
+    CAME-Net
+  </text>
+  <text x="92" y="184" fill="#C7D2FE" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="500">
+    Coordinate-Stable PGA Token Fusion for RGB-D Scene Recognition
+  </text>
+  <text x="92" y="235" fill="#D1D5DB" font-family="Segoe UI, Arial, sans-serif" font-size="24">
+    Projective Geometric Algebra • Geometric-Product Attention • Residual Equivariance Regularization
+  </text>
+
+  <rect x="92" y="286" width="220" height="42" rx="21" fill="#0F172A" stroke="#7DD3FC" stroke-opacity="0.55"/>
+  <text x="117" y="313" fill="#E0F2FE" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">
+    PGA Cl(3,0,1)
+  </text>
+
+  <rect x="328" y="286" width="298" height="42" rx="21" fill="#0F172A" stroke="#6EE7B7" stroke-opacity="0.55"/>
+  <text x="354" y="313" fill="#ECFDF5" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">
+    Geometric-Product Attention
+  </text>
+
+  <rect x="642" y="286" width="230" height="42" rx="21" fill="#0F172A" stroke="#FCD34D" stroke-opacity="0.55"/>
+  <text x="668" y="313" fill="#FFFBEB" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">
+    Coordinate Stability
+  </text>
+
+  <rect x="888" y="286" width="260" height="42" rx="21" fill="#0F172A" stroke="#C4B5FD" stroke-opacity="0.55"/>
+  <text x="913" y="313" fill="#F5F3FF" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">
+    RGB-D Scene Recognition
+  </text>
+</svg>

@@ -3,10 +3,16 @@ worktrees/
 .idea/
 .claude/
 __pycache__/
+.pytest_cache/
 *.pyc
 *.pyo
 *.pyd
 ModelNet40/
 ModelNet40.zip
+ScanNet-small/
 checkpoints/
 /artifacts/
+logs/
+*.log
+result*.txt
+备份.txt

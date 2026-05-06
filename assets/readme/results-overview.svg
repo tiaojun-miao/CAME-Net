@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980" fill="none">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1600" y2="980" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF8"/>
+      <stop offset="1" stop-color="#F7FAFF"/>
+    </linearGradient>
+    <filter id="shadow2" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
+    <linearGradient id="warm" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#FEF3C7"/>
+      <stop offset="0.55" stop-color="#F59E0B"/>
+      <stop offset="1" stop-color="#DC2626"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="980" rx="32" fill="url(#bg2)"/>
+
+  <text x="800" y="78" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="44" font-weight="700" fill="#111827">
+    Paper Figures, Distilled
+  </text>
+  <text x="800" y="118" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="24" fill="#475569">
+    Qualitative recognition, robustness under perturbations, and point-wise relevance
+  </text>
+
+  <g filter="url(#shadow2)">
+    <rect x="70" y="170" width="460" height="680" rx="28" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
+    <text x="300" y="220" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#0F172A">
+      Indoor qualitative comparison
+    </text>
+    <text x="300" y="252" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#475569">
+      Scene-level multi-label recognition
+    </text>
+    <rect x="102" y="286" width="160" height="220" rx="18" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <rect x="280" y="286" width="220" height="220" rx="18" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="182" y="314" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#334155">Input point cloud</text>
+    <text x="390" y="314" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#334155">Baseline vs. CAME-Net</text>
+    <g opacity="0.9">
+      <circle cx="140" cy="360" r="2.8" fill="#A5B4CC"/><circle cx="156" cy="354" r="2.4" fill="#A5B4CC"/><circle cx="172" cy="346" r="2.6" fill="#A5B4CC"/>
+      <circle cx="128" cy="390" r="2.6" fill="#A5B4CC"/><circle cx="146" cy="400" r="2.5" fill="#A5B4CC"/><circle cx="170" cy="396" r="2.7" fill="#A5B4CC"/>
+      <circle cx="188" cy="382" r="2.8" fill="#A5B4CC"/><circle cx="204" cy="404" r="2.4" fill="#A5B4CC"/><circle cx="222" cy="422" r="2.7" fill="#A5B4CC"/>
+      <circle cx="118" cy="432" r="2.6" fill="#A5B4CC"/><circle cx="150" cy="446" r="2.5" fill="#A5B4CC"/><circle cx="180" cy="458" r="2.7" fill="#A5B4CC"/>
+      <circle cx="210" cy="442" r="2.8" fill="#A5B4CC"/><circle cx="236" cy="388" r="2.4" fill="#A5B4CC"/>
+    </g>
+    <rect x="298" y="334" width="84" height="142" rx="14" fill="#F3F4F6" stroke="#E5E7EB"/>
+    <rect x="395" y="334" width="84" height="142" rx="14" fill="#F3F4F6" stroke="#E5E7EB"/>
+    <text x="340" y="458" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#64748B">baseline</text>
+    <text x="437" y="458" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#64748B">ours</text>
+    <g opacity="0.9">
+      <circle cx="327" cy="356" r="2.5" fill="#D1D5DB"/><circle cx="338" cy="362" r="2.6" fill="#F59E0B"/><circle cx="349" cy="368" r="2.8" fill="#DC2626"/>
+      <circle cx="356" cy="374" r="2.7" fill="#F59E0B"/><circle cx="366" cy="386" r="2.6" fill="#D1D5DB"/><circle cx="350" cy="392" r="2.5" fill="#DC2626"/>
+      <circle cx="412" cy="356" r="2.5" fill="#D1D5DB"/><circle cx="422" cy="362" r="2.6" fill="#FDE68A"/><circle cx="433" cy="368" r="2.8" fill="#F59E0B"/>
+      <circle cx="443" cy="376" r="2.7" fill="#DC2626"/><circle cx="431" cy="392" r="2.6" fill="#F59E0B"/><circle cx="420" cy="404" r="2.5" fill="#D1D5DB"/>
+    </g>
+    <rect x="100" y="536" width="380" height="110" rx="18" fill="#FAFAFA" stroke="#D1D5DB"/>
+    <text x="122" y="575" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#166534">CAME-Net advantage</text>
+    <text x="122" y="606" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#334155">
+      Better whole-scene label coverage with fewer
+    </text>
+    <text x="122" y="630" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#334155">
+      hallucinated objects and tighter relevance regions.
+    </text>
+    <rect x="100" y="678" width="110" height="44" rx="12" fill="#F0FDF4" stroke="#22C55E"/>
+    <rect x="224" y="678" width="110" height="44" rx="12" fill="#FEF2F2" stroke="#EF4444"/>
+    <rect x="348" y="678" width="110" height="44" rx="12" fill="#FFF7ED" stroke="#F97316"/>
+    <text x="155" y="706" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#166534">correct</text>
+    <text x="279" y="706" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#B91C1C">missed</text>
+    <text x="403" y="706" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#C2410C">extra</text>
+  </g>
+
+  <g filter="url(#shadow2)">
+    <rect x="570" y="170" width="460" height="680" rx="28" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
+    <text x="800" y="220" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#0F172A">
+      Robustness under perturbations
+    </text>
+    <text x="800" y="252" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#475569">
+      Coordinate-frame changes on the geometric branch
+    </text>
+    <rect x="602" y="286" width="176" height="210" rx="18" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <rect x="822" y="286" width="176" height="210" rx="18" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="690" y="314" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#334155">original</text>
+    <text x="910" y="314" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#334155">transformed</text>
+    <polygon points="640,422 670,354 748,372 730,450" fill="#C7D2FE" opacity="0.65"/>
+    <polygon points="864,430 842,360 920,342 952,416" fill="#C7D2FE" opacity="0.65"/>
+    <path d="M792 392 C808 376 814 360 824 346" stroke="#3B82F6" stroke-width="5" stroke-dasharray="10 10"/>
+    <polygon points="826,340 818,360 838,355" fill="#3B82F6"/>
+    <rect x="618" y="536" width="170" height="92" rx="18" fill="#FEF2F2" stroke="#FCA5A5"/>
+    <rect x="812" y="536" width="170" height="92" rx="18" fill="#F0FDF4" stroke="#86EFAC"/>
+    <text x="703" y="570" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#B91C1C">baseline</text>
+    <text x="703" y="602" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#7F1D1D">Drift ↑</text>
+    <text x="897" y="570" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#166534">CAME-Net</text>
+    <text x="897" y="602" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#166534">Drift ↓</text>
+    <rect x="622" y="668" width="338" height="18" rx="9" fill="#E5E7EB"/>
+    <rect x="622" y="668" width="244" height="18" rx="9" fill="#EF4444"/>
+    <rect x="622" y="714" width="338" height="18" rx="9" fill="#E5E7EB"/>
+    <rect x="622" y="714" width="124" height="18" rx="9" fill="#22C55E"/>
+    <text x="622" y="660" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#7F1D1D">baseline drift</text>
+    <text x="622" y="706" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#166534">ours drift</text>
+    <text x="622" y="786" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#334155">
+      The paper evaluates orientation-preserving motors and stress-test reflections
+    </text>
+    <text x="622" y="810" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#334155">
+      without claiming blanket physical re-rendering equivariance.
+    </text>
+  </g>
+
+  <g filter="url(#shadow2)">
+    <rect x="1070" y="170" width="460" height="680" rx="28" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
+    <text x="1300" y="220" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#0F172A">
+      Point-wise relevance
+    </text>
+    <text x="1300" y="252" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#475569">
+      Query-specific responses on indoor point clouds
+    </text>
+    <rect x="1102" y="286" width="180" height="210" rx="18" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <rect x="1290" y="286" width="180" height="210" rx="18" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="1192" y="314" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#334155">baseline relevance</text>
+    <text x="1380" y="314" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#334155">CAME relevance</text>
+    <g opacity="0.95">
+      <circle cx="1145" cy="366" r="2.8" fill="#FDE68A"/><circle cx="1154" cy="376" r="2.8" fill="#F59E0B"/><circle cx="1166" cy="388" r="2.8" fill="#DC2626"/>
+      <circle cx="1182" cy="402" r="2.8" fill="#F59E0B"/><circle cx="1204" cy="396" r="2.8" fill="#FDE68A"/><circle cx="1226" cy="370" r="2.8" fill="#DC2626"/>
+      <circle cx="1240" cy="404" r="2.8" fill="#F59E0B"/><circle cx="1236" cy="444" r="2.8" fill="#FDE68A"/>
+      <circle cx="1332" cy="366" r="2.8" fill="#FDE68A"/><circle cx="1346" cy="374" r="2.8" fill="#F59E0B"/><circle cx="1360" cy="386" r="2.8" fill="#DC2626"/>
+      <circle cx="1374" cy="400" r="2.8" fill="#DC2626"/><circle cx="1388" cy="414" r="2.8" fill="#F59E0B"/><circle cx="1400" cy="430" r="2.8" fill="#FDE68A"/>
+    </g>
+    <rect x="1112" y="540" width="340" height="94" rx="18" fill="#FAFAFA" stroke="#D1D5DB"/>
+    <text x="1134" y="574" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#0F172A">What this figure should show</text>
+    <text x="1134" y="606" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#334155">
+      Baseline relevance is broader and noisier; CAME
+    </text>
+    <text x="1134" y="630" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#334155">
+      concentrates response on object-aligned geometric regions.
+    </text>
+    <rect x="1112" y="678" width="340" height="20" rx="10" fill="url(#warm)"/>
+    <text x="1112" y="730" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#475569">low relevance</text>
+    <text x="1452" y="730" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#475569">high relevance</text>
+    <rect x="1112" y="754" width="160" height="48" rx="14" fill="#EFF6FF" stroke="#93C5FD"/>
+    <rect x="1292" y="754" width="160" height="48" rx="14" fill="#F0FDF4" stroke="#86EFAC"/>
+    <text x="1192" y="784" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#1D4ED8">query: doorframe</text>
+    <text x="1372" y="784" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#166534">query: table</text>
+  </g>
+
+  <g transform="translate(70,884)">
+    <rect width="1460" height="56" rx="18" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
+    <text x="730" y="35" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#334155">
+      The GitHub README shows distilled figure panels; see the bundled PDF for the manuscript’s full-resolution figures and captions.
+    </text>
+  </g>
+</svg>
