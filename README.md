@@ -17,6 +17,18 @@
   point-anchored multivector tokens, and geometric-product attention.
 </p>
 
+<p align="center">
+  <i>A geometry-first multimodal project focused on stable scene understanding under coordinate-frame perturbations.</i>
+</p>
+
+<p align="center">
+  <a href="#paper-figures-at-a-glance">Figure Gallery</a> |
+  <a href="#key-highlights">Key Highlights</a> |
+  <a href="#repository-layout">Repository Layout</a> |
+  <a href="#quick-start">Quick Start</a> |
+  <a href="#visualization-scripts">Visualization Scripts</a>
+</p>
+
 ---
 
 ## Overview
@@ -41,7 +53,31 @@ This repository is organized so the **method implementation is easy to inspect f
 
 > RGB-D scene recognition requires integrating visual appearance with 3D geometry while remaining stable when the coordinate frame of the geometric input changes. We propose CAME-Net, a coordinate-stable multimodal framework that represents point clouds, frozen image features, and constant text context as tokens in a shared projective geometric algebra multivector space. CAME-Net anchors each 3D point with the standard PGA point representation, encodes image and text features as invariant scalar and pseudoscalar tokens, and fuses modalities through geometric-product attention. Since practical learned modules are not exact intertwiners, we further introduce a hidden-state motor-alignment regularizer to reduce residual coordinate-frame sensitivity before readout.
 
+## Teaser
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>Geometry-first representation</h3>
+      <p><b>Point-cloud tokens are anchored by standard PGA point carriers</b> instead of treated as plain Euclidean feature vectors.</p>
+      <p><sub>Local geometry, appearance, and semantic attributes are attached to explicit multivector anchors in <code>Cl(3,0,1)</code>.</sub></p>
+    </td>
+    <td width="33%" valign="top">
+      <h3>Invariant routing core</h3>
+      <p><b>The scalar part of the geometric product acts as the strict invariant score</b> inside multimodal attention.</p>
+      <p><sub>This lets the routing kernel stay principled even when the surrounding practical layers are only approximately equivariant.</sub></p>
+    </td>
+    <td width="33%" valign="top">
+      <h3>Coordinate-stable behavior</h3>
+      <p><b>The full network is approximately equivariant in practice</b> and empirically reduces prediction drift under geometric-branch perturbations.</p>
+      <p><sub>The project emphasizes stable behavior and transparent geometric diagnostics rather than overstated exact symmetry claims.</sub></p>
+    </td>
+  </tr>
+</table>
+
 ## Paper Figures at a Glance
+
+<h3 align="center">Method & Recognition</h3>
 
 <table>
   <tr>
@@ -74,6 +110,8 @@ This repository is organized so the **method implementation is easy to inspect f
   </tr>
 </table>
 
+<h3 align="center">Robustness & Relevance</h3>
+
 <table>
   <tr>
     <td width="33%">
@@ -105,12 +143,35 @@ This repository is organized so the **method implementation is easy to inspect f
   </tr>
 </table>
 
-The GitHub homepage now shows the manuscript's core visual story directly:
+The homepage shows the manuscript's visual story directly:
 
 - **Method:** point-anchored PGA tokenization, geometric-product attention, grade-aware normalization, and residual motor-alignment regularization.
 - **Recognition quality:** scene-level multi-label predictions and object-aligned relevance are stronger than generic late fusion.
 - **Robustness:** the geometric branch remains more stable under coordinate-frame perturbations, matching the paper's coordinate-stability claim.
 - **Full-resolution figures and captions:** see [`assets/readme/CAME-Net-paper.pdf`](assets/readme/CAME-Net-paper.pdf).
+
+## Key Highlights
+
+<table>
+  <tr>
+    <td width="25%" valign="top">
+      <h4>PGA Cl(3,0,1)</h4>
+      <p>The geometric backbone is built in projective geometric algebra rather than plain Euclidean token fusion.</p>
+    </td>
+    <td width="25%" valign="top">
+      <h4>Invariant scalar routing</h4>
+      <p>The strict invariant core appears inside attention through the scalar geometric-product score.</p>
+    </td>
+    <td width="25%" valign="top">
+      <h4>Approximate equivariance</h4>
+      <p>The project explicitly distinguishes ideal equivariance arguments from practical, trainable geometry-compatible modules.</p>
+    </td>
+    <td width="25%" valign="top">
+      <h4>Figure tooling included</h4>
+      <p>The repository packages scripts for qualitative scenes, robustness panels, and point-wise relevance visualizations.</p>
+    </td>
+  </tr>
+</table>
 
 ## Why CAME-Net
 
@@ -133,6 +194,28 @@ The codebase is organized around three complementary claims from the paper:
    The scalar part of the geometric product provides the strict routing invariant inside attention, while the surrounding trainable modules remain geometry-compatible rather than overstated as exact intertwiners.
 3. **Robustness should be visible, not only tabulated.**
    The repository includes qualitative scene figures, transformation-robustness panels, and point-wise relevance visualizations so the geometric branch behavior can be inspected directly.
+
+## Deeper Read Paths
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <h4>Read the method</h4>
+      <p>Start from the algebra, tokenization, attention, normalization, and regularization stack.</p>
+      <p><a href="docs/CODE_MAP.md">Open the code map</a></p>
+    </td>
+    <td width="33%" valign="top">
+      <h4>Run the experiments</h4>
+      <p>Use the packaged ScanNet and ModelNet40 entrypoints for training, robustness benchmarks, and figure generation.</p>
+      <p><a href="docs/EXPERIMENTS.md">Open the experiment guide</a></p>
+    </td>
+    <td width="33%" valign="top">
+      <h4>Inspect the paper figures</h4>
+      <p>The bundled manuscript provides the original figure captions, table context, and formal exposition.</p>
+      <p><a href="assets/readme/CAME-Net-paper.pdf">Open the PDF</a></p>
+    </td>
+  </tr>
+</table>
 
 ## Repository Layout
 
